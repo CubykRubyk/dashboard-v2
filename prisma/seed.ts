@@ -146,10 +146,18 @@ async function main() {
   }
 
   const positions = new Map<string, number>();
+  const internalConsumableCategories = new Set([
+    "cables",
+    "liaisons",
+    "isolation",
+    "multicouche",
+    "raccords",
+  ]);
   for (const materialData of materials) {
     const categoryId = categoryIds.get(materialData.category);
     if (!categoryId) continue;
     const position = positions.get(materialData.category) || 0;
+    const isInternalConsumable = internalConsumableCategories.has(materialData.category);
     positions.set(materialData.category, position + 1);
     const material = await prisma.material.upsert({
       where: { key: materialData.key },
@@ -161,6 +169,8 @@ async function main() {
         detailLabel: materialData.detailLabel,
         categoryId,
         position,
+        allowSupplier: !isInternalConsumable,
+        allowNotInstalled: !isInternalConsumable,
       },
       create: {
         key: materialData.key,
@@ -171,6 +181,8 @@ async function main() {
         detailLabel: materialData.detailLabel,
         categoryId,
         position,
+        allowSupplier: !isInternalConsumable,
+        allowNotInstalled: !isInternalConsumable,
       },
     });
 

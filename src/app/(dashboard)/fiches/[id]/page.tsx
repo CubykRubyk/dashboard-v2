@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 import { WorkSheetForm } from "@/components/worksheets/WorkSheetForm";
+import { getSession } from "@/lib/auth/session";
 import { prisma } from "@/lib/prisma";
 import { getActiveCatalog } from "@/lib/worksheets/catalog";
 import type { WorkSheetFormData } from "@/lib/worksheets/types";
@@ -12,12 +13,16 @@ export default async function EditWorkSheetPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const [catalog, workSheet] = await Promise.all([
+  const [catalog, workSheet, user] = await Promise.all([
     getActiveCatalog(),
     prisma.workSheet.findFirst({
       where: { id, archivedAt: null },
-      include: { items: { orderBy: { position: "asc" } } },
+      include: {
+        items: { orderBy: { position: "asc" } },
+        tags: { include: { tag: true } },
+      },
     }),
+    getSession(),
   ]);
   if (!workSheet) notFound();
 
@@ -31,6 +36,7 @@ export default async function EditWorkSheetPage({
     otherMaterials: workSheet.otherMaterials,
     reportText: workSheet.reportText,
     reportFrozen: workSheet.reportFrozen,
+    tagIds: workSheet.tags.map(({ tagId }) => tagId),
     selections: workSheet.items.flatMap((item) =>
       item.materialId
         ? [{
@@ -55,7 +61,21 @@ export default async function EditWorkSheetPage({
           <p>{workSheet.client || "Client non renseigné"} · dernière modification le {workSheet.updatedAt.toLocaleDateString("fr-FR")}</p>
         </div>
       </div>
-      <WorkSheetForm catalog={catalog} workSheetId={workSheet.id} initialData={initialData} />
+      <WorkSheetForm
+        catalog={catalog}
+        workSheetId={workSheet.id}
+        initialData={initialData}
+        initialDolibarrSentAt={workSheet.dolibarrSentAt?.toISOString()}
+        initialStatus={workSheet.status}
+        canDeletePermanently={user?.role === "ADMIN"}
+        tags={[
+          ...(await prisma.tag.findMany({
+            where: { active: true },
+            orderBy: [{ position: "asc" }, { name: "asc" }],
+          })),
+          ...workSheet.tags.map(({ tag }) => tag).filter((tag) => !tag.active),
+        ]}
+      />
     </>
   );
 }

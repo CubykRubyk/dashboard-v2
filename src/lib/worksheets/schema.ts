@@ -10,6 +10,7 @@ export const workSheetPayloadSchema = z.object({
   otherMaterials: z.string().max(5_000),
   reportText: z.string().max(30_000),
   reportFrozen: z.boolean(),
+  tagIds: z.array(z.string().min(1)).max(30),
   selections: z.array(z.object({
     materialId: z.string().min(1),
     selected: z.boolean(),

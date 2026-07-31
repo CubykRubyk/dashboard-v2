@@ -1,13 +1,23 @@
 import { Boxes, FileOutput, FileText, Link2 } from "lucide-react";
+import { prisma } from "@/lib/prisma";
 
-const cards = [
-  { label: "Fiches chantier", value: "—", note: "Module en préparation", icon: FileText, tone: "primary" },
-  { label: "Documents générés", value: "—", note: "Module en préparation", icon: FileOutput, tone: "success" },
-  { label: "Matériel actif", value: "—", note: "Catalogue configurable", icon: Boxes, tone: "warning" },
-  { label: "Dolibarr", value: "Non configuré", note: "Intégration serveur à serveur", icon: Link2, tone: "info" },
-];
+export const dynamic = "force-dynamic";
 
-export default function DashboardPage() {
+export default async function DashboardPage() {
+  const [workSheets, activeMaterials, settings] = await Promise.all([
+    prisma.workSheet.count({ where: { archivedAt: null } }),
+    prisma.material.count({ where: { active: true, category: { active: true } } }),
+    prisma.appSettings.findUnique({ where: { id: 1 } }),
+  ]);
+  const dolibarrConfigured = Boolean(
+    settings?.dolibarrUrl && settings.dolibarrApiKeyEncrypted,
+  );
+  const cards = [
+    { label: "Fiches chantier", value: String(workSheets), note: "Fiches actives", icon: FileText, tone: "primary" },
+    { label: "Documents générés", value: "—", note: "Prochain module", icon: FileOutput, tone: "success" },
+    { label: "Matériel actif", value: String(activeMaterials), note: "Catalogue configurable", icon: Boxes, tone: "warning" },
+    { label: "Dolibarr", value: dolibarrConfigured ? "Configuré" : "Non configuré", note: "Connexion serveur à serveur", icon: Link2, tone: "info" },
+  ];
   return (
     <>
       <div className="page-heading">
@@ -34,7 +44,8 @@ export default function DashboardPage() {
           <div className="milestone-list">
             <div className="milestone done"><span>1</span><div><strong>Projet séparé</strong><p>L’ancienne version reste intacte.</p></div></div>
             <div className="milestone done"><span>2</span><div><strong>Authentification et rôles</strong><p>L’accès à l’application est protégé.</p></div></div>
-            <div className="milestone"><span>3</span><div><strong>Catalogue configurable</strong><p>Prochain module fonctionnel.</p></div></div>
+            <div className="milestone done"><span>3</span><div><strong>Catalogue configurable</strong><p>Matériels et modèles administrables.</p></div></div>
+            <div className="milestone done"><span>4</span><div><strong>Intégration Dolibarr</strong><p>Événements et rapports connectés.</p></div></div>
           </div>
         </article>
         <article className="card accent-card">

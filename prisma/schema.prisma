@@ -39,6 +39,32 @@ enum MaterialSupplier {
   INTERNAL
 }
 
+enum HeatPumpType {
+  AIR_WATER
+  AIR_AIR
+  GROUND_WATER
+}
+
+enum HeatPumpConfiguration {
+  SPLIT
+  MONOBLOC
+}
+
+enum ElectricalSupply {
+  SINGLE_PHASE
+  THREE_PHASE
+}
+
+enum PacDocumentType {
+  INSTALLATION_MANUAL
+  USER_MANUAL
+  DATASHEET
+  WIRING_DIAGRAM
+  ERROR_CODES
+  CERTIFICATE
+  OTHER
+}
+
 model User {
   id           String    @id @default(cuid())
   email        String    @unique
@@ -105,6 +131,7 @@ model MaterialVariant {
 
 model WorkSheet {
   id                String          @id @default(cuid())
+  legacyId          String?         @unique
   workDate          DateTime?
   client            String
   company           String
@@ -115,15 +142,48 @@ model WorkSheet {
   reportText        String          @default("")
   reportFrozen      Boolean         @default(false)
   status            WorkSheetStatus @default(DRAFT)
+  dolibarrSentAt    DateTime?
+  dolibarrLastError String?
   archivedAt        DateTime?
   createdById       String
   createdBy         User            @relation(fields: [createdById], references: [id], onDelete: Restrict)
   items             WorkSheetItem[]
+  tags              WorkSheetTag[]
   createdAt         DateTime        @default(now())
   updatedAt         DateTime        @updatedAt
 
   @@index([workDate])
   @@index([archivedAt, createdAt])
+}
+
+model Tag {
+  id         String         @id @default(cuid())
+  name       String         @unique
+  color      String         @default("#6c757d")
+  active     Boolean        @default(true)
+  position   Int            @default(0)
+  workSheets WorkSheetTag[]
+  createdAt  DateTime       @default(now())
+  updatedAt  DateTime       @updatedAt
+
+  @@index([active, position])
+}
+
+model WorkSheetTag {
+  workSheetId String
+  tagId       String
+  workSheet   WorkSheet @relation(fields: [workSheetId], references: [id], onDelete: Cascade)
+  tag         Tag       @relation(fields: [tagId], references: [id], onDelete: Restrict)
+
+  @@id([workSheetId, tagId])
+  @@index([tagId])
+}
+
+model AppSettings {
+  id                      Int      @id @default(1)
+  dolibarrUrl             String   @default("")
+  dolibarrApiKeyEncrypted String   @default("")
+  updatedAt               DateTime @updatedAt
 }
 
 model WorkSheetItem {
@@ -164,4 +224,82 @@ model AuditLog {
 
   @@index([userId, createdAt])
   @@index([entityType, entityId])
+}
+
+model PacBrand {
+  id        String     @id @default(cuid())
+  name      String     @unique
+  active    Boolean    @default(true)
+  models    HeatPump[]
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+}
+
+model Refrigerant {
+  id        String     @id @default(cuid())
+  name      String     @unique
+  gwp       Float
+  active    Boolean    @default(true)
+  models    HeatPump[]
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+}
+
+model HeatPump {
+  id                       String                @id @default(cuid())
+  name                     String
+  brandId                  String
+  brand                    PacBrand              @relation(fields: [brandId], references: [id], onDelete: Restrict)
+  type                     HeatPumpType          @default(AIR_WATER)
+  configuration            HeatPumpConfiguration @default(SPLIT)
+  electricalSupply         ElectricalSupply      @default(SINGLE_PHASE)
+  powerKw                  Float?
+  outdoorReference         String                @default("")
+  indoorReference          String                @default("")
+  refrigerantId            String?
+  refrigerant              Refrigerant?          @relation(fields: [refrigerantId], references: [id], onDelete: SetNull)
+  factoryChargeKg          Float?
+  maxPipeLengthM           Float?
+  maxHeightDifferenceM     Float?
+  includedPipeLengthM      Float?
+  additionalChargeGPerM    Float?
+  liquidPipeDiameter       String                @default("")
+  gasPipeDiameter          String                @default("")
+  powerCable               String                @default("")
+  recommendedProtection    String                @default("")
+  communicationCable       String                @default("")
+  hydraulicConnections     String                @default("")
+  minimumFlow              String                @default("")
+  minimumWaterVolume       String                @default("")
+  maximumFlowTemperature   String                @default("")
+  bufferTankRecommendation String                @default("")
+  commissioningNotes       String                @default("")
+  installationNotes        String                @default("")
+  internalNotes            String                @default("")
+  active                   Boolean               @default(true)
+  documents                PacDocument[]
+  createdAt                DateTime              @default(now())
+  updatedAt                DateTime              @updatedAt
+
+  @@unique([brandId, name])
+  @@index([brandId, active])
+  @@index([refrigerantId])
+}
+
+model PacDocument {
+  id          String          @id @default(cuid())
+  heatPumpId  String
+  heatPump    HeatPump        @relation(fields: [heatPumpId], references: [id], onDelete: Cascade)
+  name        String
+  type        PacDocumentType @default(OTHER)
+  originalName String
+  storageName String          @unique
+  mimeType    String
+  sizeBytes   Int
+  version     String          @default("")
+  documentDate DateTime?
+  primary     Boolean         @default(false)
+  createdAt   DateTime        @default(now())
+
+  @@index([heatPumpId, type])
 }

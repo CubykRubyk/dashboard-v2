@@ -7,6 +7,7 @@ export async function getActiveCatalog(): Promise<CatalogCategory[]> {
     orderBy: { position: "asc" },
     select: {
       id: true,
+      key: true,
       name: true,
       materials: {
         where: { active: true },

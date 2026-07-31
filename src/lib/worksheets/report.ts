@@ -72,8 +72,10 @@ export function generateWorkSheetReport(
       continue;
     }
 
-    const finalText = selection.installed ? text : `${text} (non installé)`;
-    (selection.supplier === "COMPANY" ? companyLines : internalLines).push(finalText);
+    const installed = material.allowNotInstalled ? selection.installed : true;
+    const supplier = material.allowSupplier ? selection.supplier : "INTERNAL";
+    const finalText = installed ? text : `${text} (non installé)`;
+    (supplier === "COMPANY" ? companyLines : internalLines).push(finalText);
   }
 
   if (installationLines.length || lines.length > 1) lines.push("");

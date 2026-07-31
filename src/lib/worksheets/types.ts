@@ -22,6 +22,7 @@ export interface CatalogMaterial {
 
 export interface CatalogCategory {
   id: string;
+  key: string;
   name: string;
   materials: CatalogMaterial[];
 }
@@ -46,5 +47,13 @@ export interface WorkSheetFormData {
   otherMaterials: string;
   reportText: string;
   reportFrozen: boolean;
+  tagIds: string[];
   selections: WorkSheetSelection[];
+}
+
+export interface WorkSheetTagOption {
+  id: string;
+  name: string;
+  color: string;
+  active: boolean;
 }

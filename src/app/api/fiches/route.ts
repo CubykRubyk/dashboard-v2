@@ -9,7 +9,14 @@ export async function POST(request: NextRequest) {
   const user = await getSession();
   if (!user) return NextResponse.json({ error: "Non autorisé." }, { status: 401 });
 
-  const parsed = workSheetPayloadSchema.safeParse(await request.json());
+  let payload: unknown;
+  try {
+    payload = await request.json();
+  } catch {
+    return NextResponse.json({ error: "Le contenu JSON n’est pas valide." }, { status: 400 });
+  }
+
+  const parsed = workSheetPayloadSchema.safeParse(payload);
   if (!parsed.success) {
     return NextResponse.json({ error: "Les données de la fiche ne sont pas valides." }, { status: 400 });
   }
@@ -20,9 +27,25 @@ export async function POST(request: NextRequest) {
     category.materials.map((material) => [material.id, { category, material }] as const),
   ));
   const selected = data.selections.filter((selection) => selection.selected);
+  const invalidSelection = selected.some((selection) => {
+    const found = materials.get(selection.materialId);
+    if (!found) return true;
+    if (found.material.inputType !== "SELECT") return false;
+    return !found.material.variants.some((variant) => variant.id === selection.variantId);
+  });
+  if (invalidSelection) {
+    return NextResponse.json(
+      { error: "Un matériel ou une variante sélectionnée n’est plus disponible." },
+      { status: 400 },
+    );
+  }
   const reportText = data.reportFrozen
     ? data.reportText
     : generateWorkSheetReport(data, catalog);
+  const validTags = await prisma.tag.findMany({
+    where: { id: { in: data.tagIds }, active: true },
+    select: { id: true },
+  });
 
   const workSheet = await prisma.$transaction(async (tx) => {
     const created = await tx.workSheet.create({
@@ -37,6 +60,7 @@ export async function POST(request: NextRequest) {
         reportText,
         reportFrozen: data.reportFrozen,
         createdById: user.id,
+        tags: { create: validTags.map((tag) => ({ tagId: tag.id })) },
       },
     });
 
@@ -57,8 +81,8 @@ export async function POST(request: NextRequest) {
           unitSnapshot: found.material.unit,
           quantity: selection.quantity || 1,
           detailValue: selection.detailValue || null,
-          supplier: selection.supplier,
-          installed: selection.installed,
+          supplier: found.material.allowSupplier ? selection.supplier : "INTERNAL",
+          installed: found.material.allowNotInstalled ? selection.installed : true,
           position,
         },
       });

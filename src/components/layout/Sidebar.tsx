@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   Boxes,
+  BarChart3,
   Building2,
   FileOutput,
   FileText,
@@ -15,6 +16,7 @@ import {
 const navigation = [
   { href: "/", label: "Dashboard", icon: Gauge },
   { href: "/fiches", label: "Fiches chantier", icon: FileText },
+  { href: "/reports", label: "Statistiques", icon: BarChart3 },
   { href: "/documents", label: "Documents", icon: FileOutput },
   { href: "/catalog", label: "Catalogue matériel", icon: Boxes },
   { href: "/pac", label: "Catalogue PAC", icon: Snowflake },
