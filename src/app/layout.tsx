@@ -20,7 +20,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="fr">
+    <html lang="fr" suppressHydrationWarning>
       <body className={jakarta.variable}>
         <Script id="theme-init" strategy="beforeInteractive">
           {`try{var p=localStorage.getItem("theme")||"auto";var d=p==="auto"?matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light":p;document.documentElement.dataset.theme=d;document.documentElement.style.colorScheme=d}catch(e){}`}

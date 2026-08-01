@@ -139,3 +139,79 @@ export async function toggleVariant(id: string, active: boolean) {
   });
   revalidatePath("/catalog");
 }
+
+export async function deleteVariant(id: string) {
+  const user = await requireAdmin();
+  const variant = await prisma.materialVariant.findUnique({
+    where: { id },
+    select: { name: true, _count: { select: { workSheetItems: true } } },
+  });
+  if (!variant) return;
+  await prisma.$transaction([
+    prisma.materialVariant.delete({ where: { id } }),
+    prisma.auditLog.create({
+      data: {
+        userId: user.id,
+        action: "MATERIAL_VARIANT_DELETE",
+        entityType: "MaterialVariant",
+        entityId: id,
+        metadata: { name: variant.name, usageCount: variant._count.workSheetItems },
+      },
+    }),
+  ]);
+  revalidatePath("/catalog");
+}
+
+export async function deleteMaterial(id: string) {
+  const user = await requireAdmin();
+  const material = await prisma.material.findUnique({
+    where: { id },
+    select: {
+      name: true,
+      _count: { select: { workSheetItems: true, variants: true } },
+    },
+  });
+  if (!material) return;
+  await prisma.$transaction([
+    prisma.material.delete({ where: { id } }),
+    prisma.auditLog.create({
+      data: {
+        userId: user.id,
+        action: "MATERIAL_DELETE",
+        entityType: "Material",
+        entityId: id,
+        metadata: {
+          name: material.name,
+          usageCount: material._count.workSheetItems,
+          variantCount: material._count.variants,
+        },
+      },
+    }),
+  ]);
+  revalidatePath("/catalog");
+}
+
+export async function deleteCategory(id: string) {
+  const user = await requireAdmin();
+  const category = await prisma.materialCategory.findUnique({
+    where: { id },
+    select: { name: true, _count: { select: { materials: true } } },
+  });
+  if (!category) return;
+  if (category._count.materials > 0) {
+    throw new Error("La catégorie doit être vide avant sa suppression.");
+  }
+  await prisma.$transaction([
+    prisma.materialCategory.delete({ where: { id } }),
+    prisma.auditLog.create({
+      data: {
+        userId: user.id,
+        action: "CATEGORY_DELETE",
+        entityType: "MaterialCategory",
+        entityId: id,
+        metadata: { name: category.name },
+      },
+    }),
+  ]);
+  revalidatePath("/catalog");
+}

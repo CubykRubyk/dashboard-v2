@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Menu, Monitor, Moon, PanelLeftClose, Sun } from "lucide-react";
+import { ChevronDown, LogOut, Monitor, Moon, Search, Sun } from "lucide-react";
 import type { SessionUser } from "@/lib/auth/session";
 import { logout } from "@/app/(auth)/login/actions";
 
@@ -21,17 +21,28 @@ export function Header({
   onOpenMobile: () => void;
 }) {
   const [themeOpen, setThemeOpen] = useState(false);
+  const [userOpen, setUserOpen] = useState(false);
   const ThemeIcon = theme === "dark" ? Moon : theme === "light" ? Sun : Monitor;
 
   return (
     <header className="app-header">
-      <button className="icon-button sidebar-toggle desktop-only" aria-label="Réduire le menu" onClick={onToggleSidebar}>
-        <PanelLeftClose aria-hidden size={19} />
+      <button
+        className="app-toggler"
+        aria-label="Afficher ou réduire le menu"
+        onClick={() => {
+          if (window.matchMedia("(max-width: 1199px)").matches) onOpenMobile();
+          else onToggleSidebar();
+        }}
+      >
+        <span />
+        <span />
+        <span />
       </button>
-      <button className="icon-button sidebar-toggle mobile-only" aria-label="Ouvrir le menu" onClick={onOpenMobile}>
-        <Menu aria-hidden size={20} />
-      </button>
-      {/* La recherche sera réactivée avec le module de recherche globale. */}
+      <div className="header-search" aria-label="Recherche bientôt disponible">
+        <Search aria-hidden size={17} />
+        <span>Rechercher...</span>
+        <kbd>⌘ K</kbd>
+      </div>
       <div className="header-actions">
         <div className="theme-menu">
           <button
@@ -56,16 +67,34 @@ export function Header({
             </div>
           )}
         </div>
-        <div className="user-summary">
-          <span className="user-avatar">{user.name.slice(0, 1).toUpperCase()}</span>
-          <span>
-            <strong>{user.name}</strong>
-            <small>{user.role === "ADMIN" ? "Administrateur" : user.role}</small>
-          </span>
+        <div className="user-menu">
+          <button
+            className="user-summary"
+            aria-expanded={userOpen}
+            onClick={() => setUserOpen((open) => !open)}
+          >
+            <span className="user-avatar">{user.name.slice(0, 1).toUpperCase()}</span>
+            <span className="user-copy">
+              <strong>{user.name}</strong>
+              <small>{user.role === "ADMIN" ? "Administrateur" : user.role}</small>
+            </span>
+            <ChevronDown aria-hidden size={14} />
+          </button>
+          {userOpen && (
+            <div className="user-popover">
+              <div>
+                <strong>{user.name}</strong>
+                <small>{user.email}</small>
+              </div>
+              <form action={logout}>
+                <button>
+                  <LogOut aria-hidden size={16} />
+                  Déconnexion
+                </button>
+              </form>
+            </div>
+          )}
         </div>
-        <form action={logout}>
-          <button className="button button-ghost button-small">Déconnexion</button>
-        </form>
       </div>
     </header>
   );

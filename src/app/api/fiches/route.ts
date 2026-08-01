@@ -55,7 +55,7 @@ export async function POST(request: NextRequest) {
         company: data.company,
         installer: data.installer,
         eventId: data.eventId || null,
-        mainInstallations: data.mainInstallations,
+        mainInstallations: data.installations.map((item) => item.designation).join("\n"),
         otherMaterials: data.otherMaterials,
         reportText,
         reportFrozen: data.reportFrozen,
@@ -63,6 +63,21 @@ export async function POST(request: NextRequest) {
         tags: { create: validTags.map((tag) => ({ tagId: tag.id })) },
       },
     });
+
+    for (const [position, installation] of data.installations.entries()) {
+      await tx.workSheetInstallation.create({
+        data: {
+          workSheetId: created.id,
+          designationSnapshot: installation.designation,
+          quantity: installation.quantity,
+          supplier: installation.supplier,
+          sourceSupplier: installation.sourceSupplier,
+          deliveryNote: installation.deliveryNote,
+          installed: installation.installed,
+          position,
+        },
+      });
+    }
 
     for (const [position, selection] of selected.entries()) {
       const found = materials.get(selection.materialId);
