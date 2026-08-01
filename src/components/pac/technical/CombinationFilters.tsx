@@ -8,6 +8,7 @@ export function CombinationFilters({
   filters,
   manufacturers,
   productRanges,
+  resetHref = "/pac/technical/combinations",
 }: {
   filters: {
     q: string;
@@ -18,6 +19,7 @@ export function CombinationFilters({
   };
   manufacturers: Array<{ id: string; name: string }>;
   productRanges: Array<{ id: string; manufacturerId: string; name: string }>;
+  resetHref?: string;
 }) {
   const [manufacturerId, setManufacturerId] = useState(filters.manufacturer);
   const [productRangeId, setProductRangeId] = useState(filters.range);
@@ -100,7 +102,7 @@ export function CombinationFilters({
         {filtered && (
           <Link
             className="button button-ghost"
-            href="/pac/technical/combinations"
+            href={resetHref}
           >
             <RotateCcw size={15} /> Réinitialiser
           </Link>
