@@ -37,6 +37,7 @@ yarn-error.log*
 # generated code and local application data
 /src/generated/prisma/
 /data/
+/.data/
 /uploads/
 /backups/
 *.sql

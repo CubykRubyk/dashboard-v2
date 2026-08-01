@@ -48,3 +48,27 @@ export async function uploadDocumentTemplate(formData: FormData) {
     throw error;
   }
 }
+
+export async function updateDocumentTemplate(id: string, formData: FormData) {
+  const user = await requireTechnicalCatalogAdmin();
+  const data = schema.parse({ name: formData.get("name") });
+  const active = formData.get("active") === "true";
+  const template = await prisma.documentTemplate.update({ where: { id }, data: { name: data.name, active } });
+  await prisma.auditLog.create({ data: { userId: user.id, action: "DOCUMENT_TEMPLATE_UPDATE", entityType: "DocumentTemplate", entityId: id, metadata: { name: template.name, active } } });
+  revalidatePath("/documents/templates");
+  revalidatePath(`/documents/templates/${id}`);
+  revalidatePath("/documents/generate");
+}
+
+export async function deleteDocumentTemplate(id: string) {
+  const user = await requireTechnicalCatalogAdmin();
+  const template = await prisma.documentTemplate.findUnique({ where: { id }, include: { _count: { select: { generatedDocuments: true } } } });
+  if (!template) throw new Error("Template introuvable.");
+  if (template._count.generatedDocuments > 0) throw new Error("Ce template est utilisé par des documents générés. Désactivez-le au lieu de le supprimer.");
+  await prisma.$transaction(async (tx) => {
+    await tx.documentTemplate.delete({ where: { id } });
+    await tx.auditLog.create({ data: { userId: user.id, action: "DOCUMENT_TEMPLATE_DELETE", entityType: "DocumentTemplate", entityId: id, metadata: { name: template.name, checksumSha256: template.checksumSha256 } } });
+  });
+  await removeOwnedPdf(template.storageName);
+  revalidatePath("/documents/templates");
+}
