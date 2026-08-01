@@ -26,6 +26,7 @@ import {
   removeTechnicalDocumentFile,
   resolveTechnicalDocumentPath,
   writeTechnicalDocumentFile,
+  writeValidatedPdfUpload,
 } from "../../src/lib/hvac/document-storage";
 import {
   type TechnicalDocumentInput,
@@ -36,6 +37,13 @@ import {
   TechnicalCatalogError,
   UploadReconciliationRequiredError,
 } from "../../src/lib/hvac/errors";
+import {
+  createUploadReconciliationRecord,
+  listUploadReconciliationRecords,
+  readUploadReconciliationRecord,
+  reconcileUploadOperation,
+  updateUploadReconciliationRecord,
+} from "../../src/lib/hvac/upload-reconciliation";
 
 function file(
   content: string,
@@ -125,11 +133,19 @@ test("a valid PDF is validated and ready for document creation", async () => {
     async remove() {
       events.push("remove");
     },
+    async record(result) {
+      events.push(`record:${result.reconciliationState}`);
+    },
   });
   assert.equal(validated.originalFileName, "manual.pdf");
   assert.equal(validated.mimeType, "application/pdf");
   assert.equal(result.id, "document-a");
-  assert.deepEqual(events, ["write", "persist"]);
+  assert.deepEqual(events, [
+    "write",
+    "record:PENDING_DB",
+    "persist",
+    "record:COMMITTED",
+  ]);
 });
 
 test("a non-PDF MIME type is rejected", async () => {
@@ -281,10 +297,20 @@ test("a newly written file is compensated if persistence fails", async () => {
       async remove() {
         events.push("remove");
       },
+      async record(result) {
+        events.push(`record:${result.reconciliationState}`);
+      },
     }),
     /database rolled back/,
   );
-  assert.deepEqual(events, ["write", "persist", "lookup", "remove"]);
+  assert.deepEqual(events, [
+    "write",
+    "record:PENDING_DB",
+    "persist",
+    "lookup",
+    "remove",
+    "record:ROLLED_BACK",
+  ]);
 });
 
 test("an ambiguous database result preserves an unreferenced file", async () => {
@@ -307,10 +333,19 @@ test("an ambiguous database result preserves an unreferenced file", async () => 
       async remove() {
         events.push("remove");
       },
+      async record(result) {
+        events.push(`record:${result.reconciliationState}`);
+      },
     }),
     UploadReconciliationRequiredError,
   );
-  assert.deepEqual(events, ["write", "persist", "lookup"]);
+  assert.deepEqual(events, [
+    "write",
+    "record:PENDING_DB",
+    "persist",
+    "lookup",
+    "record:AMBIGUOUS",
+  ]);
 });
 
 test("a committed document wins over an ambiguous response", async () => {
@@ -330,9 +365,162 @@ test("a committed document wins over an ambiguous response", async () => {
     async remove() {
       events.push("remove");
     },
+    async record(result) {
+      events.push(`record:${result.reconciliationState}`);
+    },
   });
   assert.equal(result.id, "committed-document");
-  assert.deepEqual(events, ["write", "persist", "lookup"]);
+  assert.deepEqual(events, [
+    "write",
+    "record:PENDING_DB",
+    "persist",
+    "lookup",
+    "record:COMMITTED",
+  ]);
+});
+
+test("a reconciliation-record failure occurs before DB persistence and compensates the new file", async () => {
+  const events: string[] = [];
+  await assert.rejects(
+    persistUploadedDocument({
+      async write() {
+        events.push("write");
+      },
+      async persist() {
+        events.push("persist");
+        return { id: "must-not-persist" };
+      },
+      async lookupPersisted() {
+        events.push("lookup");
+        return null;
+      },
+      async remove() {
+        events.push("remove");
+      },
+      async record() {
+        events.push("record");
+        throw new Error("journal unavailable");
+      },
+    }),
+    /journal unavailable/,
+  );
+  assert.deepEqual(events, ["write", "record", "remove"]);
+});
+
+test("streaming upload calculates SHA-256 incrementally and never leaves an invalid partial PDF", async () => {
+  const directory = await mkdtemp(path.join(os.tmpdir(), "hvac-stream-test-"));
+  const storageName = "22222222-2222-4222-8222-222222222222.pdf";
+  const invalidName = "33333333-3333-4333-8333-333333333333.pdf";
+  const chunks = [
+    new TextEncoder().encode("%PD"),
+    new TextEncoder().encode("F-1.7\n"),
+    new TextEncoder().encode("streamed"),
+  ];
+  const bytes = Buffer.concat(chunks.map((chunk) => Buffer.from(chunk)));
+  const streamedFile: DocumentFileLike = {
+    name: "streamed.pdf",
+    type: "application/pdf",
+    size: bytes.byteLength,
+    async arrayBuffer() {
+      throw new Error("arrayBuffer must not be used when stream is available");
+    },
+    stream() {
+      return new ReadableStream({
+        start(controller) {
+          for (const chunk of chunks) controller.enqueue(chunk);
+          controller.close();
+        },
+      });
+    },
+  };
+  try {
+    const result = await writeValidatedPdfUpload(
+      streamedFile,
+      storageName,
+      directory,
+    );
+    assert.equal(result.checksumSha256, calculateSha256(bytes));
+    assert.equal(
+      (await readFile(path.join(directory, storageName))).toString(),
+      bytes.toString(),
+    );
+
+    await assert.rejects(
+      writeValidatedPdfUpload(
+        file("not-pdf", {
+          stream() {
+            return new ReadableStream({
+              start(controller) {
+                controller.enqueue(new TextEncoder().encode("not-pdf"));
+                controller.close();
+              },
+            });
+          },
+        }),
+        invalidName,
+        directory,
+      ),
+      TechnicalCatalogError,
+    );
+    await assert.rejects(readFile(path.join(directory, invalidName)), {
+      code: "ENOENT",
+    });
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+});
+
+test("ambiguous upload evidence is persistent and reconciliation is idempotent", async () => {
+  const directory = await mkdtemp(
+    path.join(os.tmpdir(), "hvac-reconciliation-test-"),
+  );
+  const operationId = "44444444-4444-4444-8444-444444444444";
+  try {
+    await createUploadReconciliationRecord({
+      storageName: "55555555-5555-4555-8555-555555555555.pdf",
+      logicalDocumentName: "Manual",
+      checksumSha256: "a".repeat(64),
+      sizeBytes: 123,
+      mimeType: "application/pdf",
+      actorId: "admin-a",
+    }, { operationId, storageRoot: directory });
+    await updateUploadReconciliationRecord(operationId, {
+      databaseCheck: "CHECK_FAILED",
+      ambiguityReason: "connection lost",
+      reconciliationState: "AMBIGUOUS",
+    }, { storageRoot: directory });
+    const ambiguous = await readUploadReconciliationRecord(
+      operationId,
+      directory,
+    );
+    assert.equal(ambiguous.reconciliationState, "AMBIGUOUS");
+    assert.equal(ambiguous.storageName, "55555555-5555-4555-8555-555555555555.pdf");
+    assert.equal("physicalPath" in ambiguous, false);
+
+    let checks = 0;
+    const reconciled = await reconcileUploadOperation(
+      operationId,
+      async () => {
+        checks += 1;
+        return { id: "document-a" };
+      },
+      { storageRoot: directory },
+    );
+    assert.equal(reconciled.reconciliationState, "COMMITTED");
+    const repeated = await reconcileUploadOperation(
+      operationId,
+      async () => {
+        checks += 1;
+        return null;
+      },
+      { storageRoot: directory },
+    );
+    assert.equal(repeated.reconciliationState, "COMMITTED");
+    assert.equal(checks, 1);
+    assert.equal((await listUploadReconciliationRecords(directory)).length, 1);
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
 });
 
 test("path traversal and arbitrary storage names are rejected", () => {

@@ -1,13 +1,20 @@
 import { constants } from "node:fs";
+import { createHash } from "node:crypto";
 import {
   access,
   mkdir,
+  open,
   readFile,
   unlink,
   writeFile,
 } from "node:fs/promises";
 import path from "node:path";
-import { calculateSha256 } from "@/lib/hvac/document-file";
+import {
+  calculateSha256,
+  MAX_TECHNICAL_DOCUMENT_BYTES,
+  type DocumentFileLike,
+  validatePdfFileMetadata,
+} from "@/lib/hvac/document-file";
 import { TechnicalCatalogError } from "@/lib/hvac/errors";
 
 const STORAGE_NAME_PATTERN =
@@ -107,6 +114,89 @@ export async function writeTechnicalDocumentFile(
   await assertTechnicalDocumentStorageReady(storageRoot);
   await writeFile(destination, content, { flag: "wx", mode: 0o640 });
   return destination;
+}
+
+export async function writeValidatedPdfUpload(
+  file: DocumentFileLike,
+  storageName: string,
+  storageRoot = technicalDocumentStorageRoot(),
+) {
+  const metadata = validatePdfFileMetadata(file);
+  const destination = resolveTechnicalDocumentPath(storageName, storageRoot);
+  await assertTechnicalDocumentStorageReady(storageRoot);
+  const handle = await open(destination, "wx", 0o640);
+  let completed = false;
+  try {
+    const hash = createHash("sha256");
+    let sizeBytes = 0;
+    let signature = Buffer.alloc(0);
+    const source = file.stream?.();
+    const chunks: AsyncIterable<Uint8Array> = source
+      ? source as unknown as AsyncIterable<Uint8Array>
+      : (async function* fallback() {
+          yield new Uint8Array(await file.arrayBuffer());
+        })();
+
+    for await (const chunk of chunks) {
+      const bytes = Buffer.from(chunk);
+      sizeBytes += bytes.byteLength;
+      if (sizeBytes > MAX_TECHNICAL_DOCUMENT_BYTES) {
+        throw new TechnicalCatalogError(
+          "Le document doit être un PDF de 25 Mo maximum.",
+          "INVALID_FILE",
+        );
+      }
+      if (signature.byteLength < 5) {
+        signature = Buffer.concat([
+          signature,
+          bytes.subarray(0, 5 - signature.byteLength),
+        ]);
+      }
+      hash.update(bytes);
+      let offset = 0;
+      while (offset < bytes.byteLength) {
+        const { bytesWritten } = await handle.write(
+          bytes,
+          offset,
+          bytes.byteLength - offset,
+          null,
+        );
+        if (bytesWritten <= 0) {
+          throw new Error("The uploaded PDF could not be written completely.");
+        }
+        offset += bytesWritten;
+      }
+    }
+    if (sizeBytes !== metadata.sizeBytes) {
+      throw new TechnicalCatalogError(
+        "La taille reçue du fichier est incohérente.",
+        "INVALID_FILE",
+      );
+    }
+    if (
+      signature.byteLength < 5
+      || signature.toString("ascii") !== "%PDF-"
+    ) {
+      throw new TechnicalCatalogError(
+        "Le contenu du fichier ne possède pas une signature PDF valide.",
+        "INVALID_FILE",
+      );
+    }
+    await handle.sync();
+    completed = true;
+    return {
+      originalFileName: metadata.originalFileName,
+      storageName,
+      checksumSha256: hash.digest("hex"),
+      mimeType: metadata.mimeType,
+      sizeBytes,
+    };
+  } finally {
+    await handle.close();
+    if (!completed) {
+      await unlink(destination).catch(() => undefined);
+    }
+  }
 }
 
 export async function readTechnicalDocumentFile(

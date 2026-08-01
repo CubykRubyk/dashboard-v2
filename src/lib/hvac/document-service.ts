@@ -106,6 +106,21 @@ export interface UploadCompensationDependencies<T extends { id: string }> {
   persist(): Promise<T>;
   lookupPersisted(): Promise<T | null>;
   remove(): Promise<void>;
+  record(result: {
+    databaseCheck:
+      | "NOT_ATTEMPTED"
+      | "COMMIT_CONFIRMED"
+      | "ROLLBACK_CONFIRMED"
+      | "REFERENCE_FOUND"
+      | "REFERENCE_NOT_FOUND"
+      | "CHECK_FAILED";
+    reconciliationState:
+      | "PENDING_DB"
+      | "COMMITTED"
+      | "ROLLED_BACK"
+      | "AMBIGUOUS";
+    ambiguityReason: string | null;
+  }): Promise<void>;
 }
 
 function errorCode(error: unknown) {
@@ -125,18 +140,12 @@ export async function persistUploadedDocument<T extends { id: string }>(
 ) {
   await dependencies.write();
   try {
-    return await dependencies.persist();
+    await dependencies.record({
+      databaseCheck: "NOT_ATTEMPTED",
+      reconciliationState: "PENDING_DB",
+      ambiguityReason: null,
+    });
   } catch (error) {
-    let persisted: T | null;
-    try {
-      persisted = await dependencies.lookupPersisted();
-    } catch {
-      throw new UploadReconciliationRequiredError();
-    }
-    if (persisted) return persisted;
-    if (isAmbiguousPersistenceError(error)) {
-      throw new UploadReconciliationRequiredError();
-    }
     try {
       await dependencies.remove();
     } catch {
@@ -144,4 +153,73 @@ export async function persistUploadedDocument<T extends { id: string }>(
     }
     throw error;
   }
+
+  let persistedResult: T;
+  try {
+    persistedResult = await dependencies.persist();
+  } catch (error) {
+    let persisted: T | null;
+    try {
+      persisted = await dependencies.lookupPersisted();
+    } catch (lookupError) {
+      await dependencies.record({
+        databaseCheck: "CHECK_FAILED",
+        reconciliationState: "AMBIGUOUS",
+        ambiguityReason: lookupError instanceof Error
+          ? lookupError.message.slice(0, 500)
+          : "Database verification failed.",
+      }).catch(() => undefined);
+      throw new UploadReconciliationRequiredError();
+    }
+    if (persisted) {
+      await dependencies.record({
+        databaseCheck: "REFERENCE_FOUND",
+        reconciliationState: "COMMITTED",
+        ambiguityReason: null,
+      }).catch(() => {
+        throw new UploadReconciliationRequiredError();
+      });
+      return persisted;
+    }
+    if (isAmbiguousPersistenceError(error)) {
+      await dependencies.record({
+        databaseCheck: "REFERENCE_NOT_FOUND",
+        reconciliationState: "AMBIGUOUS",
+        ambiguityReason: error instanceof Error
+          ? error.message.slice(0, 500)
+          : "Database result is ambiguous.",
+      }).catch(() => undefined);
+      throw new UploadReconciliationRequiredError();
+    }
+    try {
+      await dependencies.remove();
+    } catch (removeError) {
+      await dependencies.record({
+        databaseCheck: "ROLLBACK_CONFIRMED",
+        reconciliationState: "AMBIGUOUS",
+        ambiguityReason: removeError instanceof Error
+          ? `Rollback confirmed but file compensation failed: ${
+              removeError.message.slice(0, 400)
+            }`
+          : "Rollback confirmed but file compensation failed.",
+      }).catch(() => undefined);
+      throw new UploadReconciliationRequiredError();
+    }
+    await dependencies.record({
+      databaseCheck: "ROLLBACK_CONFIRMED",
+      reconciliationState: "ROLLED_BACK",
+      ambiguityReason: null,
+    }).catch(() => undefined);
+    throw error;
+  }
+  try {
+    await dependencies.record({
+      databaseCheck: "COMMIT_CONFIRMED",
+      reconciliationState: "COMMITTED",
+      ambiguityReason: null,
+    });
+  } catch {
+    throw new UploadReconciliationRequiredError();
+  }
+  return persistedResult;
 }

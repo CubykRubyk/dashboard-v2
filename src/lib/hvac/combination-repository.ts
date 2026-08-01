@@ -43,33 +43,16 @@ function lookupFor(transaction: Transaction): CombinationLookup {
       });
     },
     findCombinationPairDuplicate(
-      manufacturerId,
+      _manufacturerId,
       indoorEquipmentId,
       outdoorEquipmentId,
       excludeCombinationId,
     ) {
       return transaction.systemCombination.findFirst({
         where: {
-          manufacturerId,
           id: excluding(excludeCombinationId),
-          AND: [
-            {
-              components: {
-                some: {
-                  equipmentId: indoorEquipmentId,
-                  role: EquipmentType.INDOOR_UNIT,
-                },
-              },
-            },
-            {
-              components: {
-                some: {
-                  equipmentId: outdoorEquipmentId,
-                  role: EquipmentType.OUTDOOR_UNIT,
-                },
-              },
-            },
-          ],
+          indoorEquipmentId,
+          outdoorEquipmentId,
         },
         select: { id: true },
       });
@@ -140,6 +123,8 @@ function auditSnapshot(combination: {
   installationNotes: string;
   internalNotes: string;
   active: boolean;
+  indoorEquipmentId: string;
+  outdoorEquipmentId: string;
   components: Array<{ equipmentId: string; role: EquipmentType }>;
 }) {
   return {
@@ -155,6 +140,8 @@ function auditSnapshot(combination: {
     installationNotes: combination.installationNotes,
     internalNotes: combination.internalNotes,
     active: combination.active,
+    indoorEquipmentId: combination.indoorEquipmentId,
+    outdoorEquipmentId: combination.outdoorEquipmentId,
     components: componentIds(combination.components),
   };
 }
@@ -172,6 +159,8 @@ const combinationSnapshotSelect = {
   installationNotes: true,
   internalNotes: true,
   active: true,
+  indoorEquipmentId: true,
+  outdoorEquipmentId: true,
   components: {
     select: {
       equipmentId: true,
@@ -198,7 +187,11 @@ export function createCombinationRecordWithDatabase(
       input,
     );
     const created = await transaction.systemCombination.create({
-      data: validated.combination,
+      data: {
+        ...validated.combination,
+        indoorEquipmentId: validated.indoorEquipment.id,
+        outdoorEquipmentId: validated.outdoorEquipment.id,
+      },
       select: { id: true },
     });
     await transaction.combinationComponent.createMany({
@@ -266,7 +259,11 @@ export function updateCombinationRecord(
     });
     await transaction.systemCombination.update({
       where: { id },
-      data: validated.combination,
+      data: {
+        ...validated.combination,
+        indoorEquipmentId: validated.indoorEquipment.id,
+        outdoorEquipmentId: validated.outdoorEquipment.id,
+      },
     });
     await transaction.combinationComponent.createMany({
       data: componentCreateData(

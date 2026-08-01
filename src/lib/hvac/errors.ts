@@ -17,7 +17,8 @@ export class TechnicalCatalogError extends Error {
       | "RECONCILIATION_REQUIRED"
       | "LEGACY_READ_ONLY"
       | "DEPENDENCY_CONFLICT"
-      | "CONFIRMATION_REQUIRED",
+      | "CONFIRMATION_REQUIRED"
+      | "UNAUTHORIZED",
   ) {
     super(message);
     this.name = "TechnicalCatalogError";

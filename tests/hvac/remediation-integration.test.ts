@@ -51,6 +51,9 @@ test("PAC remediation preserves legacy and document data during controlled delet
   const heatPumpId = `${token}-heat-pump`;
   const legacyDocumentId = `${token}-legacy-document`;
   const technicalDocumentId = `${token}-technical-document`;
+  const preservedLegacyDocumentId = `${token}-legacy-document-preserved`;
+  const preservedTechnicalDocumentId =
+    `${token}-technical-document-preserved`;
   const indoorId = `${token}-indoor`;
   const outdoorId = `${token}-outdoor`;
   const physicalDirectory = await mkdtemp(
@@ -171,6 +174,8 @@ test("PAC remediation preserves legacy and document data during controlled delet
           data: {
             id: `${token}-empty-combination`,
             manufacturerId,
+            indoorEquipmentId: indoorId,
+            outdoorEquipmentId: outdoorId,
             name: `${token} empty`,
             normalizedName: `${token} empty`,
           },
@@ -184,6 +189,8 @@ test("PAC remediation preserves legacy and document data during controlled delet
           data: {
             id: invalidId,
             manufacturerId,
+            indoorEquipmentId: indoorId,
+            outdoorEquipmentId: outdoorId,
             name: `${token} two indoor`,
             normalizedName: `${token} two indoor`,
           },
@@ -211,6 +218,8 @@ test("PAC remediation preserves legacy and document data during controlled delet
           data: {
             id: invalidId,
             manufacturerId,
+            indoorEquipmentId: indoorId,
+            outdoorEquipmentId: outdoorId,
             name: `${token} two outdoor`,
             normalizedName: `${token} two outdoor`,
           },
@@ -344,6 +353,36 @@ test("PAC remediation preserves legacy and document data during controlled delet
         role: EquipmentType.INDOOR_UNIT,
       },
     });
+    await prisma.pacDocument.create({
+      data: {
+        id: preservedLegacyDocumentId,
+        heatPumpId,
+        name: "Legacy manual preserved",
+        type: PacDocumentType.INSTALLATION_MANUAL,
+        originalName: "legacy-preserved.pdf",
+        storageName: `${token}-legacy-preserved.pdf`,
+        mimeType: "application/pdf",
+        sizeBytes: 20,
+      },
+    });
+    await prisma.technicalDocument.create({
+      data: {
+        id: preservedTechnicalDocumentId,
+        legacyPacDocumentId: preservedLegacyDocumentId,
+        title: "Technical manual preserved",
+        type: TechnicalDocumentType.INSTALLATION_MANUAL,
+        originalFileName: "technical-preserved.pdf",
+        storageName: `${token}-technical-preserved.pdf`,
+        mimeType: "application/pdf",
+        sizeBytes: 20,
+      },
+    });
+    await prisma.equipmentTechnicalDocument.create({
+      data: {
+        technicalDocumentId: preservedTechnicalDocumentId,
+        equipmentId: indoorId,
+      },
+    });
     const deletedEquipment = await deleteEquipmentRecord(
       indoorId,
       "UI TEST",
@@ -364,6 +403,26 @@ test("PAC remediation preserves legacy and document data during controlled delet
       await prisma.technicalDocument.findUnique({
         where: { id: technicalDocumentId },
       }),
+    );
+    assert.ok(
+      await prisma.pacDocument.findUnique({
+        where: { id: preservedLegacyDocumentId },
+      }),
+    );
+    assert.ok(
+      await prisma.technicalDocument.findUnique({
+        where: { id: preservedTechnicalDocumentId },
+      }),
+    );
+    assert.equal(
+      await readFile(physicalPdf, "utf8"),
+      "%PDF-1.7\npreserve me",
+    );
+    assert.equal(
+      await prisma.legacyHeatPumpEquipment.count({
+        where: { equipmentId: indoorId },
+      }),
+      0,
     );
     const equipmentAudit = await prisma.auditLog.findFirst({
       where: {
@@ -427,7 +486,11 @@ test("PAC remediation preserves legacy and document data during controlled delet
       where: { manufacturerId },
     }).catch(() => undefined);
     await prisma.technicalDocument.deleteMany({
-      where: { id: technicalDocumentId },
+      where: {
+        id: {
+          in: [technicalDocumentId, preservedTechnicalDocumentId],
+        },
+      },
     }).catch(() => undefined);
     await prisma.pacDocument.deleteMany({
       where: { heatPumpId },

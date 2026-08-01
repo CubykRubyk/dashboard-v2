@@ -406,7 +406,7 @@ model Equipment {
 
   // Refrigeration
   refrigerantId   String?
-  refrigerant     Refrigerant? @relation(fields: [refrigerantId], references: [id], onDelete: SetNull)
+  refrigerant     Refrigerant? @relation(fields: [refrigerantId], references: [id], onDelete: Restrict)
   factoryChargeKg Float?
 
   // Refrigerant line sizes and limits
@@ -432,12 +432,14 @@ model Equipment {
   installationNotes  String @default("")
   internalNotes      String @default("")
 
-  active             Boolean                      @default(true)
-  combinationParts   CombinationComponent[]
-  technicalDocuments EquipmentTechnicalDocument[]
-  legacyMappings     LegacyHeatPumpEquipment[]
-  createdAt          DateTime                     @default(now())
-  updatedAt          DateTime                     @updatedAt
+  active              Boolean                      @default(true)
+  combinationParts    CombinationComponent[]
+  indoorCombinations  SystemCombination[]          @relation("SystemCombinationIndoorEquipment")
+  outdoorCombinations SystemCombination[]          @relation("SystemCombinationOutdoorEquipment")
+  technicalDocuments  EquipmentTechnicalDocument[]
+  legacyMappings      LegacyHeatPumpEquipment[]
+  createdAt           DateTime                     @default(now())
+  updatedAt           DateTime                     @updatedAt
 
   @@unique([manufacturerId, normalizedReference])
   @@index([manufacturerId, type, active])
@@ -461,6 +463,10 @@ model SystemCombination {
   installationNotes  String                               @default("")
   internalNotes      String                               @default("")
   active             Boolean                              @default(true)
+  indoorEquipmentId  String
+  indoorEquipment    Equipment                            @relation("SystemCombinationIndoorEquipment", fields: [indoorEquipmentId], references: [id], onDelete: Restrict)
+  outdoorEquipmentId String
+  outdoorEquipment   Equipment                            @relation("SystemCombinationOutdoorEquipment", fields: [outdoorEquipmentId], references: [id], onDelete: Restrict)
   components         CombinationComponent[]
   technicalDocuments SystemCombinationTechnicalDocument[]
   legacyMappings     LegacyHeatPumpSystemCombination[]
@@ -468,8 +474,11 @@ model SystemCombination {
   updatedAt          DateTime                             @updatedAt
 
   @@unique([manufacturerId, normalizedName])
+  @@unique([indoorEquipmentId, outdoorEquipmentId])
   @@index([manufacturerId, active])
   @@index([productRangeId])
+  @@index([indoorEquipmentId])
+  @@index([outdoorEquipmentId])
 }
 
 model CombinationComponent {
@@ -488,6 +497,29 @@ model CombinationComponent {
   @@unique([systemCombinationId, equipmentId])
   @@unique([systemCombinationId, role])
   @@index([equipmentId])
+}
+
+model CombinationComponentMigrationArchive {
+  id                  String        @id
+  migrationName       String
+  originalComponentId String
+  systemCombinationId String
+  equipmentId         String
+  role                EquipmentType
+  quantity            Int
+  position            Int
+  required            Boolean
+  notes               String
+  sourceCreatedAt     DateTime
+  reason              String
+  provenance          Json
+  snapshot            Json
+  archivedAt          DateTime      @default(now())
+
+  @@unique([migrationName, originalComponentId], map: "CombinationComponentMigrationArchive_migrationName_originalComp")
+  @@index([systemCombinationId])
+  @@index([equipmentId])
+  @@index([archivedAt])
 }
 
 model TechnicalDocument {

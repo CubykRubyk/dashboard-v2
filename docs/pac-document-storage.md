@@ -60,3 +60,36 @@ rollback.
 Never use recursive deletion as part of transfer or rollback. A document file
 may be removed only by an explicit, separately audited future workflow after a
 database reference check.
+
+## Upload reconciliation journal
+
+Every upload creates a JSON operation record in
+`<storage-root>/.reconciliation` before the database transaction begins. The
+record contains the generated storage name, safe logical name, SHA-256, size,
+MIME type, actor ID, timestamps, database check and reconciliation state. It
+never contains a physical path, token, cookie or PDF content.
+
+Confirmed commits are marked `COMMITTED`; confirmed rollbacks whose new file
+was compensated are marked `ROLLED_BACK`. A connection loss, failed database
+check or failed compensation is marked `AMBIGUOUS`, and the PDF is retained.
+An initial `PENDING_DB` record also remains useful if the process terminates
+before its final state can be written.
+
+Inventory reconciliation without modifying either the database or journal:
+
+```bash
+npm run documents:reconciliation:inventory
+```
+
+The command opens a read-only PostgreSQL transaction. `FOUND` means the file
+must be retained and the journal can later be marked committed by an approved
+operator workflow. `NOT_FOUND` is not permission to delete: the file remains
+until the database outcome, backups and concurrent operations have been
+reviewed.
+
+PDF upload uses the `File` stream when available, calculates SHA-256
+incrementally, writes with exclusive creation and fsyncs before persistence.
+The 25 MiB limit is enforced both from metadata and while streaming. A fallback
+buffer path exists only for runtimes or test doubles without `File.stream()`;
+production Node/Next.js supplies the streaming API. Limit concurrent uploads at
+the reverse proxy if deploying on a memory-constrained host.

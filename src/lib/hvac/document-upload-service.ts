@@ -1,10 +1,10 @@
 import "server-only";
 
+import { randomUUID } from "node:crypto";
 import type { TechnicalDocumentInput } from "@/lib/hvac/document-validation";
 import {
   generateStorageName,
   type DocumentFileLike,
-  validatePdfFile,
 } from "@/lib/hvac/document-file";
 import {
   createTechnicalDocumentRecord,
@@ -16,9 +16,13 @@ import { persistUploadedDocument } from "@/lib/hvac/document-service";
 import {
   checksumStoredTechnicalDocument,
   removeTechnicalDocumentFile,
-  writeTechnicalDocumentFile,
+  writeValidatedPdfUpload,
 } from "@/lib/hvac/document-storage";
 import { DuplicateTechnicalDocumentError } from "@/lib/hvac/errors";
+import {
+  createUploadReconciliationRecord,
+  updateUploadReconciliationRecord,
+} from "@/lib/hvac/upload-reconciliation";
 
 async function findLegacyDuplicate(checksumSha256: string) {
   const documents = await findTechnicalDocumentsWithoutChecksum();
@@ -50,37 +54,61 @@ export async function uploadTechnicalDocument(
   input: TechnicalDocumentInput,
   userId: string,
 ) {
-  const validatedFile = await validatePdfFile(file);
-  const existing = await findTechnicalDocumentByChecksum(
-    validatedFile.checksumSha256,
-  ) || await findLegacyDuplicate(validatedFile.checksumSha256);
-  if (existing) throw new DuplicateTechnicalDocumentError(existing.id);
-
   const storageName = generateStorageName();
+  const operationId = randomUUID();
+  const uploadState: {
+    validatedFile?: Awaited<ReturnType<typeof writeValidatedPdfUpload>>;
+  } = {};
   try {
     return await persistUploadedDocument({
-      write: () => writeTechnicalDocumentFile(
-        storageName,
-        validatedFile.buffer,
-      ).then(() => undefined),
-      persist: () => createTechnicalDocumentRecord(
-        input,
-        {
-          originalFileName: validatedFile.originalFileName,
+      write: async () => {
+        uploadState.validatedFile = await writeValidatedPdfUpload(
+          file,
           storageName,
-          checksumSha256: validatedFile.checksumSha256,
-          mimeType: validatedFile.mimeType,
-          sizeBytes: validatedFile.sizeBytes,
-        },
-        userId,
-      ).then((document) => ({ id: document.id })),
+        );
+      },
+      persist: async () => {
+        const validatedFile = uploadState.validatedFile;
+        if (!validatedFile) {
+          throw new Error("Validated upload metadata is unavailable.");
+        }
+        const existing = await findTechnicalDocumentByChecksum(
+          validatedFile.checksumSha256,
+        ) || await findLegacyDuplicate(validatedFile.checksumSha256);
+        if (existing) throw new DuplicateTechnicalDocumentError(existing.id);
+        return createTechnicalDocumentRecord(
+          input,
+          validatedFile,
+          userId,
+        ).then((document) => ({ id: document.id }));
+      },
       lookupPersisted: () => findTechnicalDocumentByStorageName(storageName),
       remove: () => removeTechnicalDocumentFile(storageName).then(
         () => undefined,
       ),
+      record: async (result) => {
+        const validatedFile = uploadState.validatedFile;
+        if (!validatedFile) {
+          throw new Error("Validated upload metadata is unavailable.");
+        }
+        if (result.reconciliationState === "PENDING_DB") {
+          await createUploadReconciliationRecord({
+            storageName,
+            logicalDocumentName: input.title,
+            checksumSha256: validatedFile.checksumSha256,
+            sizeBytes: validatedFile.sizeBytes,
+            mimeType: validatedFile.mimeType,
+            actorId: userId,
+          }, { operationId });
+          return;
+        }
+        await updateUploadReconciliationRecord(operationId, result);
+      },
     });
   } catch (error) {
     if (isUniqueConstraintError(error)) {
+      const validatedFile = uploadState.validatedFile;
+      if (!validatedFile) throw error;
       const concurrent = await findTechnicalDocumentByChecksum(
         validatedFile.checksumSha256,
       );

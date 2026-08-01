@@ -10,6 +10,45 @@ ADD CONSTRAINT "TechnicalDocument_legacyPacDocumentId_fkey"
 FOREIGN KEY ("legacyPacDocumentId") REFERENCES "PacDocument"("id")
 ON DELETE SET NULL ON UPDATE CASCADE;
 
+-- This migration may rebuild legacy combinations. Every component that will
+-- be removed is copied first into a persistent, FK-free archive so its exact
+-- state remains recoverable even if the source combination or equipment is
+-- later deleted. This table intentionally survives the migration.
+CREATE TABLE "CombinationComponentMigrationArchive" (
+  "id" TEXT NOT NULL,
+  "migrationName" TEXT NOT NULL,
+  "originalComponentId" TEXT NOT NULL,
+  "systemCombinationId" TEXT NOT NULL,
+  "equipmentId" TEXT NOT NULL,
+  "role" "EquipmentType" NOT NULL,
+  "quantity" INTEGER NOT NULL,
+  "position" INTEGER NOT NULL,
+  "required" BOOLEAN NOT NULL,
+  "notes" TEXT NOT NULL,
+  "sourceCreatedAt" TIMESTAMP(3) NOT NULL,
+  "reason" TEXT NOT NULL,
+  "provenance" JSONB NOT NULL,
+  "snapshot" JSONB NOT NULL,
+  "archivedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+  CONSTRAINT "CombinationComponentMigrationArchive_pkey"
+    PRIMARY KEY ("id")
+);
+
+CREATE UNIQUE INDEX
+  "CombinationComponentMigrationArchive_migrationName_originalComp"
+ON "CombinationComponentMigrationArchive"("migrationName", "originalComponentId");
+
+CREATE INDEX
+  "CombinationComponentMigrationArchive_systemCombinationId_idx"
+ON "CombinationComponentMigrationArchive"("systemCombinationId");
+
+CREATE INDEX "CombinationComponentMigrationArchive_equipmentId_idx"
+ON "CombinationComponentMigrationArchive"("equipmentId");
+
+CREATE INDEX "CombinationComponentMigrationArchive_archivedAt_idx"
+ON "CombinationComponentMigrationArchive"("archivedAt");
+
 -- The first migration deduplicated equipment by manufacturer reference. In
 -- the exceptional case where a legacy indoor and outdoor unit shared the same
 -- reference, both trace rows could point to one Equipment with only one type.
@@ -132,13 +171,18 @@ LEFT JOIN "CombinationComponent" component
 LEFT JOIN "Equipment" equipment ON equipment."id" = component."equipmentId"
 GROUP BY combination."id"
 HAVING
-  COUNT(*) FILTER (
+  COUNT(component."id") <> 2
+  OR COUNT(*) FILTER (
     WHERE component."role" = 'INDOOR_UNIT'::"EquipmentType"
       AND equipment."type" = 'INDOOR_UNIT'::"EquipmentType"
+      AND component."quantity" = 1
+      AND component."required" IS TRUE
   ) <> 1
   OR COUNT(*) FILTER (
     WHERE component."role" = 'OUTDOOR_UNIT'::"EquipmentType"
       AND equipment."type" = 'OUTDOOR_UNIT'::"EquipmentType"
+      AND component."quantity" = 1
+      AND component."required" IS TRUE
   ) <> 1
   OR COUNT(*) FILTER (
     WHERE component."role" NOT IN (
@@ -146,7 +190,95 @@ HAVING
       'OUTDOOR_UNIT'::"EquipmentType"
     )
       OR component."role" <> equipment."type"
+      OR component."quantity" <> 1
+      OR component."required" IS NOT TRUE
   ) <> 0;
+
+INSERT INTO "CombinationComponentMigrationArchive" (
+  "id",
+  "migrationName",
+  "originalComponentId",
+  "systemCombinationId",
+  "equipmentId",
+  "role",
+  "quantity",
+  "position",
+  "required",
+  "notes",
+  "sourceCreatedAt",
+  "reason",
+  "provenance",
+  "snapshot",
+  "archivedAt"
+)
+SELECT
+  'archive_20260801220000_' || md5(component."id"),
+  '20260801220000_pac_library_remediation',
+  component."id",
+  component."systemCombinationId",
+  component."equipmentId",
+  component."role",
+  component."quantity",
+  component."position",
+  component."required",
+  component."notes",
+  component."createdAt",
+  CASE
+    WHEN equipment."id" IS NULL THEN 'MISSING_EQUIPMENT'
+    WHEN component."role" NOT IN (
+      'INDOOR_UNIT'::"EquipmentType",
+      'OUTDOOR_UNIT'::"EquipmentType"
+    ) THEN 'NON_SPLIT_ROLE'
+    WHEN component."role" <> equipment."type" THEN 'ROLE_TYPE_MISMATCH'
+    WHEN component."quantity" <> 1 THEN 'NON_CANONICAL_QUANTITY'
+    WHEN component."required" IS NOT TRUE THEN 'NON_REQUIRED_COMPONENT'
+    ELSE 'INVALID_LEGACY_COMBINATION_REBUILD'
+  END,
+  jsonb_build_object(
+    'sourceMigration', '20260801220000_pac_library_remediation',
+    'equipmentType', equipment."type",
+    'legacyEquipmentMappings', COALESCE((
+      SELECT jsonb_agg(
+        jsonb_build_object(
+          'heatPumpId', legacy_equipment."heatPumpId",
+          'role', legacy_equipment."role",
+          'createdAt', legacy_equipment."createdAt"
+        )
+        ORDER BY legacy_equipment."heatPumpId", legacy_equipment."role"
+      )
+      FROM "LegacyHeatPumpEquipment" legacy_equipment
+      WHERE legacy_equipment."equipmentId" = component."equipmentId"
+    ), '[]'::jsonb),
+    'legacyCombinationMappings', COALESCE((
+      SELECT jsonb_agg(
+        jsonb_build_object(
+          'heatPumpId', legacy_combination."heatPumpId",
+          'createdAt', legacy_combination."createdAt"
+        )
+        ORDER BY legacy_combination."heatPumpId"
+      )
+      FROM "LegacyHeatPumpSystemCombination" legacy_combination
+      WHERE legacy_combination."systemCombinationId"
+        = component."systemCombinationId"
+    ), '[]'::jsonb)
+  ),
+  jsonb_build_object(
+    'id', component."id",
+    'systemCombinationId', component."systemCombinationId",
+    'equipmentId', component."equipmentId",
+    'role', component."role",
+    'quantity', component."quantity",
+    'position', component."position",
+    'required', component."required",
+    'notes', component."notes",
+    'createdAt', component."createdAt"
+  ),
+  CURRENT_TIMESTAMP
+FROM "CombinationComponent" component
+JOIN "_InvalidLegacyCombinations" invalid
+  ON invalid."id" = component."systemCombinationId"
+LEFT JOIN "Equipment" equipment ON equipment."id" = component."equipmentId"
+ON CONFLICT ("migrationName", "originalComponentId") DO NOTHING;
 
 DELETE FROM "CombinationComponent" component
 USING "_InvalidLegacyCombinations" invalid

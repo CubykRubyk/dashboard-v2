@@ -1,6 +1,5 @@
-import "server-only";
-
-import type { Prisma } from "@/generated/prisma/client";
+import type { EquipmentType, Prisma } from "@/generated/prisma/client";
+import { TechnicalCatalogError } from "@/lib/hvac/errors";
 import { prisma } from "@/lib/prisma";
 import type { CatalogLookup } from "@/lib/hvac/catalog-service";
 
@@ -205,17 +204,157 @@ export async function updateEquipmentRecord(
   data: Prisma.EquipmentUncheckedUpdateInput,
   userId: string,
 ) {
-  await prisma.$transaction([
-    prisma.equipment.update({ where: { id }, data }),
-    prisma.auditLog.create({
+  await prisma.$transaction(async (transaction) => {
+    await transaction.$queryRaw`
+      SELECT "id" FROM "Equipment" WHERE "id" = ${id} FOR UPDATE
+    `;
+    const before = await transaction.equipment.findUnique({
+      where: { id },
+      include: {
+        combinationParts: {
+          include: {
+            systemCombination: {
+              select: {
+                id: true,
+                name: true,
+                manufacturerId: true,
+                indoorEquipmentId: true,
+                outdoorEquipmentId: true,
+              },
+            },
+          },
+        },
+      },
+    });
+    if (!before) {
+      throw new TechnicalCatalogError(
+        "L’équipement n’existe plus.",
+        "NOT_FOUND",
+      );
+    }
+
+    const nextManufacturerId = String(
+      data.manufacturerId ?? before.manufacturerId,
+    );
+    const nextType = String(data.type ?? before.type) as EquipmentType;
+    const manufacturer = await transaction.manufacturer.findUnique({
+      where: { id: nextManufacturerId },
+      select: { id: true },
+    });
+    if (!manufacturer) {
+      throw new TechnicalCatalogError(
+        "Le fabricant sélectionné n’existe plus.",
+        "NOT_FOUND",
+      );
+    }
+    const nextProductRangeId =
+      data.productRangeId === undefined
+        ? before.productRangeId
+        : data.productRangeId == null
+          ? null
+          : String(data.productRangeId);
+    if (nextProductRangeId) {
+      const productRange = await transaction.productRange.findUnique({
+        where: { id: nextProductRangeId },
+        select: { manufacturerId: true },
+      });
+      if (!productRange) {
+        throw new TechnicalCatalogError(
+          "La gamme sélectionnée n’existe plus.",
+          "NOT_FOUND",
+        );
+      }
+      if (productRange.manufacturerId !== nextManufacturerId) {
+        throw new TechnicalCatalogError(
+          "La gamme sélectionnée appartient à un autre fabricant.",
+          "RANGE_MANUFACTURER_MISMATCH",
+        );
+      }
+    }
+
+    const normalizedReference = String(
+      data.normalizedReference ?? before.normalizedReference,
+    );
+    const duplicate = await transaction.equipment.findFirst({
+      where: {
+        manufacturerId: nextManufacturerId,
+        normalizedReference,
+        id: { not: id },
+      },
+      select: { id: true },
+    });
+    if (duplicate) {
+      throw new TechnicalCatalogError(
+        "Cette référence existe déjà pour ce fabricant.",
+        "DUPLICATE",
+      );
+    }
+
+    const blockers = before.combinationParts.filter((part) => {
+      const combination = part.systemCombination;
+      const expectedType = part.role;
+      const canonicalId = expectedType === "INDOOR_UNIT"
+        ? combination.indoorEquipmentId
+        : combination.outdoorEquipmentId;
+      return (
+        nextType !== expectedType
+        || nextManufacturerId !== combination.manufacturerId
+        || canonicalId !== id
+      );
+    });
+    if (blockers.length > 0) {
+      const details = blockers
+        .map((part) => (
+          `${part.systemCombination.name} `
+          + `(/pac/technical/combinations/${part.systemCombination.id})`
+        ))
+        .join(", ");
+      throw new TechnicalCatalogError(
+        `Cette modification invaliderait les combinaisons suivantes : ${details}.`,
+        "DEPENDENCY_CONFLICT",
+      );
+    }
+
+    const referenceNeedsReview =
+      normalizedReference === before.normalizedReference
+        ? before.referenceNeedsReview
+        : false;
+    const after = await transaction.equipment.update({
+      where: { id },
+      data: {
+        ...data,
+        referenceNeedsReview,
+      },
+    });
+    await transaction.auditLog.create({
       data: {
         userId,
         action: "HVAC_EQUIPMENT_UPDATE",
         entityType: "Equipment",
         entityId: id,
+        metadata: {
+          before: {
+            manufacturerId: before.manufacturerId,
+            productRangeId: before.productRangeId,
+            type: before.type,
+            manufacturerReference: before.manufacturerReference,
+            normalizedReference: before.normalizedReference,
+            active: before.active,
+          },
+          after: {
+            manufacturerId: after.manufacturerId,
+            productRangeId: after.productRangeId,
+            type: after.type,
+            manufacturerReference: after.manufacturerReference,
+            normalizedReference: after.normalizedReference,
+            active: after.active,
+          },
+        },
       },
-    }),
-  ]);
+    });
+  }, {
+    isolationLevel: "Serializable",
+  });
 }
 
 export async function toggleEquipmentRecord(

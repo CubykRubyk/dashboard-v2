@@ -13,7 +13,8 @@ import {
 import { TechnicalCatalogError } from "../../src/lib/hvac/errors";
 import {
   LEGACY_CATALOG_READ_ONLY_MESSAGE,
-  rejectLegacyCatalogMutation,
+  legacyMutationAuditMetadata,
+  legacyMutationRejectedError,
 } from "../../src/lib/hvac/legacy-read-only";
 
 const indoor = {
@@ -41,13 +42,41 @@ function rejectsInvalidComponents(
 
 test("legacy HeatPump and PacDocument mutations are always refused", () => {
   assert.throws(
-    rejectLegacyCatalogMutation,
+    () => {
+      throw legacyMutationRejectedError();
+    },
     (error) => (
       error instanceof TechnicalCatalogError
       && error.code === "LEGACY_READ_ONLY"
       && error.message === LEGACY_CATALOG_READ_ONLY_MESSAGE
     ),
   );
+});
+
+test("legacy rejection audit metadata is limited and identifies the attempted operation", () => {
+  const metadata = legacyMutationAuditMetadata({
+    operation: "DELETE",
+    entityType: "Refrigerant",
+    entityId: "refrigerant-a",
+  }, {
+    sessionUserId: "admin-a",
+    currentRole: "ADMIN",
+    active: true,
+  });
+  assert.deepEqual(metadata, {
+    operation: "DELETE",
+    entityType: "Refrigerant",
+    entityId: "refrigerant-a",
+    reason: "LEGACY_CATALOG_READ_ONLY",
+    actor: {
+      sessionUserId: "admin-a",
+      currentRole: "ADMIN",
+      active: true,
+    },
+  });
+  assert.equal("payload" in metadata, false);
+  assert.equal("token" in metadata, false);
+  assert.equal("path" in metadata, false);
 });
 
 test("a split component set contains exactly one UI and one UE", () => {

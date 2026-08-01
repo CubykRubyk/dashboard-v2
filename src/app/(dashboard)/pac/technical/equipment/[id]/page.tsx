@@ -162,7 +162,7 @@ export default async function EquipmentDetailPage({
               entityLabel={`${equipment.manufacturerReference} — ${equipment.name}`}
               expectedConfirmation={equipment.manufacturerReference}
               facts={[
-                `${equipment._count.technicalDocuments} association(s) vers des documents actifs seront retirées, sans supprimer les documents ni les PDF.`,
+                `${equipment._count.technicalDocuments} document(s) associé(s) seront détaché(s), sans supprimer les documents ni les PDF.`,
                 `${equipment._count.legacyMappings} liaison(s) de traçabilité seront retirées, sans modifier HeatPump.`,
                 "Aucune combinaison ne sera supprimée automatiquement.",
               ]}

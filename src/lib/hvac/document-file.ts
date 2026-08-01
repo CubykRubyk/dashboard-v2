@@ -10,6 +10,7 @@ export interface DocumentFileLike {
   type: string;
   size: number;
   arrayBuffer(): Promise<ArrayBuffer>;
+  stream?(): ReadableStream<Uint8Array>;
 }
 
 export interface ValidatedPdfFile {
@@ -53,9 +54,9 @@ export function generateStorageName(
   return `${uuid()}.pdf`;
 }
 
-export async function validatePdfFile(
+export function validatePdfFileMetadata(
   file: DocumentFileLike | null | undefined,
-): Promise<ValidatedPdfFile> {
+) {
   if (!file || file.size <= 0) {
     throw new TechnicalCatalogError(
       "Sélectionnez un fichier PDF.",
@@ -75,6 +76,19 @@ export async function validatePdfFile(
     );
   }
   const originalFileName = validateOriginalFileName(file.name);
+  return {
+    file,
+    originalFileName,
+    mimeType: TECHNICAL_DOCUMENT_MIME_TYPE,
+    sizeBytes: file.size,
+  };
+}
+
+export async function validatePdfFile(
+  file: DocumentFileLike | null | undefined,
+): Promise<ValidatedPdfFile> {
+  const metadata = validatePdfFileMetadata(file);
+  file = metadata.file;
   const buffer = Buffer.from(await file.arrayBuffer());
   if (buffer.byteLength !== file.size) {
     throw new TechnicalCatalogError(
@@ -95,7 +109,7 @@ export async function validatePdfFile(
   return {
     buffer,
     checksumSha256: calculateSha256(buffer),
-    originalFileName,
+    originalFileName: metadata.originalFileName,
     mimeType: TECHNICAL_DOCUMENT_MIME_TYPE,
     sizeBytes: buffer.byteLength,
   };

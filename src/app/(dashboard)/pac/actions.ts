@@ -1,173 +1,126 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
-import { z } from "zod";
-import { getSession } from "@/lib/auth/session";
-import { rejectLegacyCatalogMutation } from "@/lib/hvac/legacy-read-only";
+import { rejectLegacyCatalogMutation } from "@/lib/hvac/legacy-mutation-guard";
 import { prisma } from "@/lib/prisma";
 
-async function requireAdmin() {
-  const user = await getSession();
-  if (!user || user.role !== "ADMIN") throw new Error("Accès non autorisé.");
-  return user;
-}
-
 export async function createPacBrand(formData: FormData) {
-  const user = await requireAdmin();
-  const name = z.string().trim().min(1).max(100).parse(formData.get("name"));
-  const brand = await prisma.pacBrand.create({ data: { name } });
-  await prisma.auditLog.create({
-    data: { userId: user.id, action: "PAC_BRAND_CREATE", entityType: "PacBrand", entityId: brand.id },
+  void formData;
+  return rejectLegacyCatalogMutation({
+    operation: "CREATE",
+    entityType: "PacBrand",
   });
-  revalidatePath("/pac");
 }
 
 export async function createRefrigerant(formData: FormData) {
-  const user = await requireAdmin();
-  const data = z.object({
-    name: z.string().trim().min(1).max(40),
-    gwp: z.coerce.number().min(0).max(100_000),
-  }).parse(Object.fromEntries(formData));
-  const refrigerant = await prisma.refrigerant.create({ data });
-  await prisma.auditLog.create({
-    data: { userId: user.id, action: "REFRIGERANT_CREATE", entityType: "Refrigerant", entityId: refrigerant.id },
+  void formData;
+  return rejectLegacyCatalogMutation({
+    operation: "CREATE",
+    entityType: "Refrigerant",
   });
-  revalidatePath("/pac");
 }
 
 export async function updatePacBrand(id: string, formData: FormData) {
-  const user = await requireAdmin();
-  const name = z.string().trim().min(1).max(100).parse(formData.get("name"));
-  await prisma.$transaction([
-    prisma.pacBrand.update({ where: { id }, data: { name } }),
-    prisma.auditLog.create({
-      data: { userId: user.id, action: "PAC_BRAND_UPDATE", entityType: "PacBrand", entityId: id },
-    }),
-  ]);
-  revalidatePath("/pac");
+  void formData;
+  return rejectLegacyCatalogMutation({
+    operation: "UPDATE",
+    entityType: "PacBrand",
+    entityId: id,
+  });
 }
 
 export async function togglePacBrand(id: string, active: boolean) {
-  const user = await requireAdmin();
-  await prisma.$transaction([
-    prisma.pacBrand.update({ where: { id }, data: { active } }),
-    prisma.auditLog.create({
-      data: {
-        userId: user.id,
-        action: active ? "PAC_BRAND_ENABLE" : "PAC_BRAND_DISABLE",
-        entityType: "PacBrand",
-        entityId: id,
-      },
-    }),
-  ]);
-  revalidatePath("/pac");
+  return rejectLegacyCatalogMutation({
+    operation: active ? "ENABLE" : "DISABLE",
+    entityType: "PacBrand",
+    entityId: id,
+  });
 }
 
 export async function deletePacBrand(id: string) {
-  const user = await requireAdmin();
-  const brand = await prisma.pacBrand.findUnique({
-    where: { id },
-    select: { name: true, _count: { select: { models: true } } },
+  return rejectLegacyCatalogMutation({
+    operation: "DELETE",
+    entityType: "PacBrand",
+    entityId: id,
   });
-  if (!brand) return;
-  if (brand._count.models > 0) {
-    throw new Error("Une marque utilisée par un modèle PAC ne peut pas être supprimée.");
-  }
-  await prisma.$transaction([
-    prisma.pacBrand.delete({ where: { id } }),
-    prisma.auditLog.create({
-      data: {
-        userId: user.id,
-        action: "PAC_BRAND_DELETE",
-        entityType: "PacBrand",
-        entityId: id,
-        metadata: { name: brand.name },
-      },
-    }),
-  ]);
-  revalidatePath("/pac");
 }
 
 export async function updateRefrigerant(id: string, formData: FormData) {
-  const user = await requireAdmin();
-  const data = z.object({
-    name: z.string().trim().min(1).max(40),
-    gwp: z.coerce.number().min(0).max(100_000),
-  }).parse(Object.fromEntries(formData));
-  await prisma.$transaction([
-    prisma.refrigerant.update({ where: { id }, data }),
-    prisma.auditLog.create({
-      data: { userId: user.id, action: "REFRIGERANT_UPDATE", entityType: "Refrigerant", entityId: id },
-    }),
-  ]);
-  revalidatePath("/pac");
+  void formData;
+  return rejectLegacyCatalogMutation({
+    operation: "UPDATE",
+    entityType: "Refrigerant",
+    entityId: id,
+  });
 }
 
 export async function toggleRefrigerant(id: string, active: boolean) {
-  const user = await requireAdmin();
-  await prisma.$transaction([
-    prisma.refrigerant.update({ where: { id }, data: { active } }),
-    prisma.auditLog.create({
-      data: {
-        userId: user.id,
-        action: active ? "REFRIGERANT_ENABLE" : "REFRIGERANT_DISABLE",
-        entityType: "Refrigerant",
-        entityId: id,
-      },
-    }),
-  ]);
-  revalidatePath("/pac");
+  return rejectLegacyCatalogMutation({
+    operation: active ? "ENABLE" : "DISABLE",
+    entityType: "Refrigerant",
+    entityId: id,
+  });
 }
 
 export async function deleteRefrigerant(id: string) {
-  const user = await requireAdmin();
   const refrigerant = await prisma.refrigerant.findUnique({
     where: { id },
-    select: { name: true, gwp: true, _count: { select: { models: true } } },
-  });
-  if (!refrigerant) return;
-  if (refrigerant._count.models > 0) {
-    throw new Error("Un réfrigérant utilisé par un modèle PAC ne peut pas être supprimé.");
-  }
-  await prisma.$transaction([
-    prisma.refrigerant.delete({ where: { id } }),
-    prisma.auditLog.create({
-      data: {
-        userId: user.id,
-        action: "REFRIGERANT_DELETE",
-        entityType: "Refrigerant",
-        entityId: id,
-        metadata: { name: refrigerant.name, gwp: refrigerant.gwp },
+    select: {
+      _count: {
+        select: {
+          models: true,
+          equipment: true,
+        },
       },
-    }),
-  ]);
-  revalidatePath("/pac");
+    },
+  });
+  const dependencies = refrigerant
+    ? ` Dépendances bloquantes : ${refrigerant._count.models} modèle(s) legacy et ${refrigerant._count.equipment} équipement(s) du catalogue technique.`
+    : "";
+  return rejectLegacyCatalogMutation({
+    operation: "DELETE",
+    entityType: "Refrigerant",
+    entityId: id,
+  }, `Le catalogue PAC historique est en lecture seule.${dependencies}`);
 }
 
 export async function createHeatPump(formData: FormData) {
   void formData;
-  rejectLegacyCatalogMutation();
+  return rejectLegacyCatalogMutation({
+    operation: "CREATE",
+    entityType: "HeatPump",
+  });
 }
 
 export async function updateHeatPump(id: string, formData: FormData) {
-  void id;
   void formData;
-  rejectLegacyCatalogMutation();
+  return rejectLegacyCatalogMutation({
+    operation: "UPDATE",
+    entityType: "HeatPump",
+    entityId: id,
+  });
 }
 
 export async function toggleHeatPump(id: string, active: boolean) {
-  void id;
-  void active;
-  rejectLegacyCatalogMutation();
+  return rejectLegacyCatalogMutation({
+    operation: active ? "ENABLE" : "DISABLE",
+    entityType: "HeatPump",
+    entityId: id,
+  });
 }
 
 export async function uploadPacDocument(heatPumpId: string, formData: FormData) {
-  void heatPumpId;
   void formData;
-  rejectLegacyCatalogMutation();
+  return rejectLegacyCatalogMutation({
+    operation: "UPLOAD_DOCUMENT",
+    entityType: "PacDocument",
+    entityId: heatPumpId,
+  });
 }
 
 export async function deletePacDocument(id: string) {
-  void id;
-  rejectLegacyCatalogMutation();
+  return rejectLegacyCatalogMutation({
+    operation: "DELETE",
+    entityType: "PacDocument",
+    entityId: id,
+  });
 }
