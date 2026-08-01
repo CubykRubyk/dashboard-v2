@@ -53,7 +53,16 @@ export async function generateDocument(formData: FormData) {
     reference_ue: combination?.outdoorEquipment.manufacturerReference || "",
   };
   for (const [key, value] of Object.entries({ ...automaticFields, ...manualFields })) {
-    try { if (typeof value === "boolean") form.getCheckBox(key).check(); else form.getTextField(key).setText(String(value)); } catch { /* un champ optionnel peut ne pas exister dans ce template */ }
+    try {
+      if (typeof value === "boolean") form.getCheckBox(key).check();
+      else {
+        try { form.getTextField(key).setText(String(value)); }
+        catch {
+          try { form.getDropdown(key).select(String(value)); }
+          catch { form.getOptionList(key).select(String(value)); }
+        }
+      }
+    } catch { /* un champ optionnel peut ne pas exister dans ce template */ }
   }
   form.flatten();
   const output = await pdf.save();
