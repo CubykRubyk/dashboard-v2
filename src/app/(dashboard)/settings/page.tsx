@@ -1,11 +1,19 @@
 import Link from "next/link";
-import { CirclePlus, Link2, Pencil, Power, PowerOff, Tags } from "lucide-react";
+import { Building2, CirclePlus, Link2, Pencil, Power, PowerOff, Tags } from "lucide-react";
 import { DismissibleDetails } from "@/components/ui/DismissibleDetails";
 import { DeleteTagButton } from "@/components/settings/DeleteTagButton";
 import { DolibarrSettingsForm } from "@/components/settings/DolibarrSettingsForm";
 import { getSession } from "@/lib/auth/session";
 import { prisma } from "@/lib/prisma";
-import { createTag, deleteTag, toggleTag, updateTag } from "./actions";
+import {
+  createDocumentIssuer,
+  createTag,
+  deleteTag,
+  toggleDocumentIssuer,
+  toggleTag,
+  updateDocumentIssuer,
+  updateTag,
+} from "./actions";
 
 export const dynamic = "force-dynamic";
 
@@ -15,14 +23,17 @@ export default async function SettingsPage({
   searchParams: Promise<{ tab?: string }>;
 }) {
   const { tab } = await searchParams;
-  const activeTab = tab === "tags" ? "tags" : "dolibarr";
-  const [user, tags, settings] = await Promise.all([
+  const activeTab = tab === "tags" || tab === "issuers" ? tab : "dolibarr";
+  const [user, tags, issuers, settings] = await Promise.all([
     getSession(),
     activeTab === "tags"
       ? prisma.tag.findMany({
           orderBy: [{ position: "asc" }, { name: "asc" }],
           include: { _count: { select: { workSheets: true } } },
         })
+      : Promise.resolve([]),
+    activeTab === "issuers"
+      ? prisma.documentIssuer.findMany({ orderBy: [{ active: "desc" }, { name: "asc" }] })
       : Promise.resolve([]),
     activeTab === "dolibarr"
       ? prisma.appSettings.findUnique({ where: { id: 1 } })
@@ -46,6 +57,13 @@ export default async function SettingsPage({
           aria-current={activeTab === "dolibarr" ? "page" : undefined}
         >
           <Link2 size={17} /> Dolibarr
+        </Link>
+        <Link
+          href="/settings?tab=issuers"
+          className={activeTab === "issuers" ? "active" : ""}
+          aria-current={activeTab === "issuers" ? "page" : undefined}
+        >
+          <Building2 size={17} /> Sociétés émettrices
         </Link>
         <Link
           href="/settings?tab=tags"
@@ -137,6 +155,78 @@ export default async function SettingsPage({
           </div>
         )}
       </section>
+      )}
+
+      {activeTab === "issuers" && (
+        <section className="card settings-section">
+          <div className="settings-heading">
+            <div className="settings-title">
+              <span className="settings-icon"><Building2 size={20} /></span>
+              <div>
+                <h2>Sociétés émettrices</h2>
+                <p>Les sociétés utilisées pour générer les documents, séparées de Dolibarr.</p>
+              </div>
+            </div>
+            {user?.role === "ADMIN" && (
+              <DismissibleDetails
+                summaryClassName="button button-primary"
+                summary={<><CirclePlus size={17} /> Ajouter une société</>}
+              >
+                <form action={createDocumentIssuer} className="issuer-form">
+                  <label>Nom<input name="name" required placeholder="Nom de la société" /></label>
+                  <label>Adresse<textarea name="address" rows={2} /></label>
+                  <label>Téléphone<input name="phone" /></label>
+                  <label>Email<input name="email" type="email" /></label>
+                  <label>Responsable par défaut<input name="defaultResponsible" /></label>
+                  <label>N° attestation fluides frigorigènes<input name="refrigerantAttestationNumber" /></label>
+                  <button className="button button-primary">Enregistrer</button>
+                </form>
+              </DismissibleDetails>
+            )}
+          </div>
+
+          {user?.role !== "ADMIN" && (
+            <div className="alert alert-danger">Droits administrateur requis pour modifier les sociétés.</div>
+          )}
+          {issuers.length === 0 ? (
+            <div className="settings-empty">Aucune société émettrice configurée.</div>
+          ) : (
+            <div className="issuer-settings-list">
+              {issuers.map((issuer) => (
+                <div className={`issuer-settings-card${issuer.active ? "" : " inactive"}`} key={issuer.id}>
+                  <div className="issuer-settings-heading">
+                    <div><strong>{issuer.name}</strong><span>{issuer.active ? "Active" : "Inactive"}</span></div>
+                    {user?.role === "ADMIN" && (
+                      <div className="tag-settings-actions">
+                        <DismissibleDetails summaryClassName="mini-action" summary={<><Pencil size={14} /> Modifier</>}>
+                          <form action={updateDocumentIssuer.bind(null, issuer.id)} className="issuer-form issuer-edit-form">
+                            <label>Nom<input name="name" required defaultValue={issuer.name} /></label>
+                            <label>Adresse<textarea name="address" rows={2} defaultValue={issuer.address} /></label>
+                            <label>Téléphone<input name="phone" defaultValue={issuer.phone} /></label>
+                            <label>Email<input name="email" type="email" defaultValue={issuer.email} /></label>
+                            <label>Responsable par défaut<input name="defaultResponsible" defaultValue={issuer.defaultResponsible} /></label>
+                            <label>N° attestation fluides frigorigènes<input name="refrigerantAttestationNumber" defaultValue={issuer.refrigerantAttestationNumber} /></label>
+                            <button className="button button-primary button-small">Enregistrer</button>
+                          </form>
+                        </DismissibleDetails>
+                        <form action={toggleDocumentIssuer.bind(null, issuer.id, !issuer.active)}>
+                          <button className={`status-button${issuer.active ? " active" : ""}`}>
+                            {issuer.active ? <><PowerOff size={14} /> Désactiver</> : <><Power size={14} /> Activer</>}
+                          </button>
+                        </form>
+                      </div>
+                    )}
+                  </div>
+                  <div className="issuer-settings-details">
+                    <span>{issuer.address || "Adresse non renseignée"}</span>
+                    <span>{issuer.defaultResponsible || "Responsable non renseigné"}</span>
+                    <span>{issuer.refrigerantAttestationNumber || "N° attestation non renseigné"}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </section>
       )}
     </>
   );

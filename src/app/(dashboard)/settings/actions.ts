@@ -4,10 +4,20 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { getSession } from "@/lib/auth/session";
 import { prisma } from "@/lib/prisma";
+import { requireTechnicalCatalogAdmin } from "@/lib/auth/authorization";
 
 const tagSchema = z.object({
   name: z.string().trim().min(1).max(60),
   color: z.string().regex(/^#[0-9a-fA-F]{6}$/),
+});
+
+const issuerSchema = z.object({
+  name: z.string().trim().min(1, "Le nom est requis.").max(160),
+  address: z.string().trim().max(500),
+  phone: z.string().trim().max(80),
+  email: z.string().trim().email("L’email n’est pas valide.").or(z.literal("")),
+  defaultResponsible: z.string().trim().max(160),
+  refrigerantAttestationNumber: z.string().trim().max(160),
 });
 
 async function requireAdmin() {
@@ -80,4 +90,58 @@ export async function deleteTag(id: string) {
   ]);
   revalidatePath("/settings");
   revalidatePath("/fiches");
+}
+
+export async function createDocumentIssuer(formData: FormData) {
+  const user = await requireTechnicalCatalogAdmin();
+  const data = issuerSchema.parse(Object.fromEntries(formData));
+  const issuer = await prisma.documentIssuer.create({ data });
+  await prisma.auditLog.create({
+    data: {
+      userId: user.id,
+      action: "DOCUMENT_ISSUER_CREATE",
+      entityType: "DocumentIssuer",
+      entityId: issuer.id,
+      metadata: { name: issuer.name },
+    },
+  });
+  revalidatePath("/settings");
+}
+
+export async function updateDocumentIssuer(
+  id: string,
+  formData: FormData,
+) {
+  const user = await requireTechnicalCatalogAdmin();
+  const data = issuerSchema.parse(Object.fromEntries(formData));
+  await prisma.$transaction([
+    prisma.documentIssuer.update({ where: { id }, data }),
+    prisma.auditLog.create({
+      data: {
+        userId: user.id,
+        action: "DOCUMENT_ISSUER_UPDATE",
+        entityType: "DocumentIssuer",
+        entityId: id,
+        metadata: { name: data.name },
+      },
+    }),
+  ]);
+  revalidatePath("/settings");
+}
+
+export async function toggleDocumentIssuer(id: string, active: boolean) {
+  const user = await requireTechnicalCatalogAdmin();
+  await prisma.$transaction([
+    prisma.documentIssuer.update({ where: { id }, data: { active } }),
+    prisma.auditLog.create({
+      data: {
+        userId: user.id,
+        action: active ? "DOCUMENT_ISSUER_ENABLE" : "DOCUMENT_ISSUER_DISABLE",
+        entityType: "DocumentIssuer",
+        entityId: id,
+        metadata: { active },
+      },
+    }),
+  ]);
+  revalidatePath("/settings");
 }

@@ -1246,6 +1246,21 @@ kbd {
 .pac-combination-unit small { color: var(--muted); font-size: 10px; }
 .pac-combination-footer { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 15px; color: var(--muted); }
 .pac-combination-footer > small { font-size: 10px; }
+.issuer-form { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 11px; padding-top: 14px; }
+.issuer-form label { display: grid; gap: 5px; color: var(--heading); font-size: 12px; font-weight: 600; }
+.issuer-form label:nth-child(1),
+.issuer-form label:nth-child(2),
+.issuer-form button { grid-column: 1 / -1; }
+.issuer-form input,
+.issuer-form textarea { width: 100%; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); padding: 9px 10px; color: var(--heading); }
+.issuer-settings-list { display: grid; gap: 12px; }
+.issuer-settings-card { border: 1px solid var(--border); border-radius: 10px; padding: 15px 17px; }
+.issuer-settings-card.inactive { opacity: .62; background: var(--background); }
+.issuer-settings-heading { display: flex; align-items: start; justify-content: space-between; gap: 14px; }
+.issuer-settings-heading > div:first-child { display: grid; gap: 4px; }
+.issuer-settings-heading > div:first-child span { color: var(--muted); font-size: 11px; }
+.issuer-settings-details { display: flex; flex-wrap: wrap; gap: 8px 20px; margin-top: 12px; color: var(--muted); font-size: 12px; }
+.issuer-edit-form { position: absolute; z-index: 15; right: 0; width: min(520px, calc(100vw - 52px)); border: 1px solid var(--border); border-radius: 10px; background: var(--surface); padding: 15px; box-shadow: 0 14px 35px rgb(12 36 60 / 16%); }
 .pac-model-form { display: grid; gap: 18px; }
 .pac-form-section { padding: 0; overflow: hidden; }
 .pac-form-heading { border-bottom: 1px solid var(--border); padding: 18px 20px; }

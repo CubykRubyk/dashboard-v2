@@ -211,6 +211,24 @@ model AppSettings {
   updatedAt               DateTime @updatedAt
 }
 
+model DocumentIssuer {
+  id                           String   @id @default(cuid())
+  name                         String   @unique
+  address                      String   @default("")
+  phone                        String   @default("")
+  email                        String   @default("")
+  defaultResponsible           String   @default("")
+  refrigerantAttestationNumber String   @default("")
+  logoData                     String   @default("")
+  stampData                    String   @default("")
+  signatureData                String   @default("")
+  active                       Boolean  @default(true)
+  createdAt                    DateTime @default(now())
+  updatedAt                    DateTime @updatedAt
+
+  @@index([active, name])
+}
+
 model WorkSheetItem {
   id                    String           @id @default(cuid())
   workSheetId           String
