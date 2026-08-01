@@ -14,9 +14,64 @@ const STORAGE_NAME_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.pdf$/i;
 
 export function technicalDocumentStorageRoot() {
+  const configured = process.env.TECHNICAL_DOCUMENT_STORAGE_ROOT?.trim();
+  if (process.env.NODE_ENV === "production" && !configured) {
+    throw new Error(
+      "TECHNICAL_DOCUMENT_STORAGE_ROOT doit être configuré en production.",
+    );
+  }
   return path.resolve(
-    path.join(process.cwd(), "data", "pac-documents"),
+    /* turbopackIgnore: true */
+    configured || path.join(
+      /* turbopackIgnore: true */ process.cwd(),
+      "data",
+      "pac-documents",
+    ),
   );
+}
+
+function mountPoints(mountInfo: string) {
+  return mountInfo
+    .split("\n")
+    .map((line) => line.trim().split(" "))
+    .filter((fields) => fields.length > 5)
+    .map((fields) => fields[4].replaceAll("\\040", " "));
+}
+
+export async function assertTechnicalDocumentStorageReady(
+  storageRoot = technicalDocumentStorageRoot(),
+) {
+  const root = path.resolve(/* turbopackIgnore: true */ storageRoot);
+  await mkdir(root, { recursive: true, mode: 0o750 });
+  await access(root, constants.R_OK | constants.W_OK);
+
+  if (
+    process.env.NODE_ENV === "production"
+    && process.env.TECHNICAL_DOCUMENT_STORAGE_REQUIRE_MOUNT !== "true"
+  ) {
+    throw new Error(
+      "TECHNICAL_DOCUMENT_STORAGE_REQUIRE_MOUNT doit être activé en production.",
+    );
+  }
+  if (
+    process.env.NODE_ENV === "production"
+    && process.env.TECHNICAL_DOCUMENT_STORAGE_REQUIRE_MOUNT === "true"
+  ) {
+    let info: string;
+    try {
+      info = await readFile("/proc/self/mountinfo", "utf8");
+    } catch {
+      throw new Error(
+        "Le volume documentaire obligatoire ne peut pas être vérifié.",
+      );
+    }
+    if (!mountPoints(info).includes(root)) {
+      throw new Error(
+        `Le volume documentaire obligatoire n’est pas monté sur ${root}.`,
+      );
+    }
+  }
+  return root;
 }
 
 export function resolveTechnicalDocumentPath(
@@ -29,8 +84,11 @@ export function resolveTechnicalDocumentPath(
       "INVALID_FILE",
     );
   }
-  const root = path.resolve(storageRoot);
-  const resolved = path.resolve(root, storageName);
+  const root = path.resolve(/* turbopackIgnore: true */ storageRoot);
+  const resolved = path.resolve(
+    /* turbopackIgnore: true */ root,
+    storageName,
+  );
   if (path.dirname(resolved) !== root) {
     throw new TechnicalCatalogError(
       "Le chemin du fichier est invalide.",
@@ -46,7 +104,7 @@ export async function writeTechnicalDocumentFile(
   storageRoot = technicalDocumentStorageRoot(),
 ) {
   const destination = resolveTechnicalDocumentPath(storageName, storageRoot);
-  await mkdir(path.dirname(destination), { recursive: true });
+  await assertTechnicalDocumentStorageReady(storageRoot);
   await writeFile(destination, content, { flag: "wx", mode: 0o640 });
   return destination;
 }
@@ -55,7 +113,11 @@ export async function readTechnicalDocumentFile(
   storageName: string,
   storageRoot = technicalDocumentStorageRoot(),
 ) {
-  return readFile(resolveTechnicalDocumentPath(storageName, storageRoot));
+  await assertTechnicalDocumentStorageReady(storageRoot);
+  return readFile(
+    /* turbopackIgnore: true */
+    resolveTechnicalDocumentPath(storageName, storageRoot),
+  );
 }
 
 export async function technicalDocumentFileExists(

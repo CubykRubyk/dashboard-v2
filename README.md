@@ -43,3 +43,7 @@ pentru administrare, dar nu este expus în internet.
 5. verifică loginul și pagina principală.
 
 Nu salva fișiere `.env`, parole sau chei API în Git.
+
+Storage-ul persistent pentru documentele tehnice PAC, verificările de transfer
+și procedura de rollback sunt descrise în
+[`docs/pac-document-storage.md`](docs/pac-document-storage.md).

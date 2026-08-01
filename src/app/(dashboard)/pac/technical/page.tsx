@@ -24,6 +24,7 @@ export default async function TechnicalEquipmentPage({
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const params = await searchParams;
+  const deleted = valueOf(params.deleted);
   const query = valueOf(params.q).trim().slice(0, 160);
   const manufacturerId = valueOf(params.manufacturer).slice(0, 100);
   const productRangeId = valueOf(params.range).slice(0, 100);
@@ -132,6 +133,14 @@ export default async function TechnicalEquipmentPage({
           </Link>
         )}
       </div>
+
+      {deleted && (
+        <div className="alert alert-success" role="status">
+          {deleted === "equipment"
+            ? "L’équipement a été supprimé. Ses documents et fichiers PDF ont été conservés."
+            : "L’équipement avait déjà été supprimé."}
+        </div>
+      )}
 
       <EquipmentFilters
         filters={{

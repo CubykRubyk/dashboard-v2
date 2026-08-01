@@ -486,13 +486,14 @@ model CombinationComponent {
   createdAt           DateTime          @default(now())
 
   @@unique([systemCombinationId, equipmentId])
+  @@unique([systemCombinationId, role])
   @@index([equipmentId])
 }
 
 model TechnicalDocument {
   id                  String                               @id @default(cuid())
   legacyPacDocumentId String?                              @unique
-  legacyPacDocument   PacDocument?                         @relation(fields: [legacyPacDocumentId], references: [id], onDelete: Cascade)
+  legacyPacDocument   PacDocument?                         @relation(fields: [legacyPacDocumentId], references: [id], onDelete: SetNull)
   title               String
   type                TechnicalDocumentType                @default(OTHER)
   originalFileName    String

@@ -126,6 +126,13 @@ export function findTechnicalDocumentByChecksum(checksumSha256: string) {
   });
 }
 
+export function findTechnicalDocumentByStorageName(storageName: string) {
+  return prisma.technicalDocument.findUnique({
+    where: { storageName },
+    select: { id: true },
+  });
+}
+
 export function findTechnicalDocumentsWithoutChecksum() {
   return prisma.technicalDocument.findMany({
     where: { checksumSha256: null },

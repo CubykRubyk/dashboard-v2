@@ -27,10 +27,12 @@ services:
       DATABASE_URL: postgresql://dashboard:${POSTGRES_PASSWORD}@database:5432/dashboard?schema=public
       AUTH_SECRET: ${AUTH_SECRET}
       NODE_ENV: production
+      TECHNICAL_DOCUMENT_STORAGE_ROOT: /app/data/pac-documents
+      TECHNICAL_DOCUMENT_STORAGE_REQUIRE_MOUNT: "true"
     ports:
       - "127.0.0.1:3001:3000"
     volumes:
-      - document_data:/app/data
+      - document_data:/app/data/pac-documents
     networks: [backend]
 
 volumes:

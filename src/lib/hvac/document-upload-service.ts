@@ -9,6 +9,7 @@ import {
 import {
   createTechnicalDocumentRecord,
   findTechnicalDocumentByChecksum,
+  findTechnicalDocumentByStorageName,
   findTechnicalDocumentsWithoutChecksum,
 } from "@/lib/hvac/document-repository";
 import { persistUploadedDocument } from "@/lib/hvac/document-service";
@@ -72,7 +73,8 @@ export async function uploadTechnicalDocument(
           sizeBytes: validatedFile.sizeBytes,
         },
         userId,
-      ),
+      ).then((document) => ({ id: document.id })),
+      lookupPersisted: () => findTechnicalDocumentByStorageName(storageName),
       remove: () => removeTechnicalDocumentFile(storageName).then(
         () => undefined,
       ),

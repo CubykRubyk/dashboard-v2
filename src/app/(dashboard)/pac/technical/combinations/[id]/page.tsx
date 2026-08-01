@@ -10,6 +10,7 @@ import {
 import { CatalogStatusToggle } from "@/components/pac/technical/CatalogStatusToggle";
 import { CombinationEquipmentCard } from "@/components/pac/technical/CombinationEquipmentCard";
 import { CombinationForm } from "@/components/pac/technical/CombinationForm";
+import { DeleteEntityDialog } from "@/components/pac/technical/DeleteEntityDialog";
 import { TechnicalDocumentLinks } from "@/components/pac/technical/TechnicalDocumentLinks";
 import { canManageTechnicalCatalog } from "@/lib/auth/permissions";
 import { getSession } from "@/lib/auth/session";
@@ -17,7 +18,9 @@ import {
   getCombinationDetail,
   getCombinationFormOptions,
 } from "@/lib/hvac/combination-queries";
+import { activeAssociatedDocuments } from "@/lib/hvac/deletion-service";
 import {
+  deleteCombinationAction,
   toggleCombinationAction,
   updateCombinationAction,
 } from "../actions";
@@ -48,6 +51,9 @@ export default async function CombinationDetailPage({
     indoorComponent?.equipment.referenceNeedsReview
     || outdoorComponent?.equipment.referenceNeedsReview;
   const canManage = canManageTechnicalCatalog(user?.role);
+  const activeDocuments = activeAssociatedDocuments(
+    combination.technicalDocuments.map((link) => link.technicalDocument),
+  );
   const dateFormatter = new Intl.DateTimeFormat("fr-FR", {
     dateStyle: "medium",
     timeStyle: "short",
@@ -78,14 +84,30 @@ export default async function CombinationDetailPage({
           </div>
         </div>
         {canManage && (
-          <CatalogStatusToggle
-            action={toggleCombinationAction.bind(
-              null,
-              combination.id,
-              !combination.active,
-            )}
-            active={combination.active}
-          />
+          <div className="page-heading-actions">
+            <CatalogStatusToggle
+              action={toggleCombinationAction.bind(
+                null,
+                combination.id,
+                !combination.active,
+              )}
+              active={combination.active}
+            />
+            <DeleteEntityDialog
+              action={deleteCombinationAction.bind(null, combination.id)}
+              buttonLabel="Supprimer la combinaison"
+              title="Supprimer cette combinaison ?"
+              entityLabel={combination.name}
+              expectedConfirmation={combination.name}
+              facts={[
+                `UE : ${outdoorComponent?.equipment.manufacturerReference ?? "manquante"}`,
+                `UI : ${indoorComponent?.equipment.manufacturerReference ?? "manquante"}`,
+                `${combination.technicalDocuments.length} association(s) document seront retirées, sans supprimer les documents ni les PDF.`,
+                `${combination.legacyMappings.length} liaison(s) de traçabilité seront retirées, sans modifier HeatPump.`,
+                "Les équipements UI et UE seront conservés.",
+              ]}
+            />
+          </div>
         )}
       </div>
 
@@ -97,7 +119,7 @@ export default async function CombinationDetailPage({
         <div className="card">
           <FileText size={18} />
           <span>
-            <strong>{combination.technicalDocuments.length}</strong> document(s)
+            <strong>{activeDocuments.length}</strong> document(s) actif(s)
           </span>
         </div>
         <div className="card">
@@ -171,9 +193,7 @@ export default async function CombinationDetailPage({
       <TechnicalDocumentLinks
         title="Documents de la combinaison"
         description="Associations directes, sans mélanger les documents des composants."
-        documents={combination.technicalDocuments.map(
-          (link) => link.technicalDocument,
-        )}
+        documents={activeDocuments}
       />
     </>
   );

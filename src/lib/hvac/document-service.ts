@@ -2,6 +2,7 @@ import type { TechnicalDocumentInput } from "@/lib/hvac/document-validation";
 import {
   DuplicateTechnicalDocumentError,
   TechnicalCatalogError,
+  UploadReconciliationRequiredError,
 } from "@/lib/hvac/errors";
 
 interface AssociationEntity {
@@ -100,20 +101,47 @@ export async function assertUniqueDocumentChecksum(
   if (duplicate) throw new DuplicateTechnicalDocumentError(duplicate.id);
 }
 
-export interface UploadCompensationDependencies {
+export interface UploadCompensationDependencies<T extends { id: string }> {
   write(): Promise<void>;
-  persist(): Promise<{ id: string }>;
+  persist(): Promise<T>;
+  lookupPersisted(): Promise<T | null>;
   remove(): Promise<void>;
 }
 
-export async function persistUploadedDocument(
-  dependencies: UploadCompensationDependencies,
+function errorCode(error: unknown) {
+  if (!error || typeof error !== "object" || !("code" in error)) return null;
+  return typeof error.code === "string" ? error.code : null;
+}
+
+export function isAmbiguousPersistenceError(error: unknown) {
+  if (error instanceof TechnicalCatalogError) return false;
+  return !["P2002", "P2003", "P2025", "P2034"].includes(
+    errorCode(error) ?? "",
+  );
+}
+
+export async function persistUploadedDocument<T extends { id: string }>(
+  dependencies: UploadCompensationDependencies<T>,
 ) {
   await dependencies.write();
   try {
     return await dependencies.persist();
   } catch (error) {
-    await dependencies.remove();
+    let persisted: T | null;
+    try {
+      persisted = await dependencies.lookupPersisted();
+    } catch {
+      throw new UploadReconciliationRequiredError();
+    }
+    if (persisted) return persisted;
+    if (isAmbiguousPersistenceError(error)) {
+      throw new UploadReconciliationRequiredError();
+    }
+    try {
+      await dependencies.remove();
+    } catch {
+      throw new UploadReconciliationRequiredError();
+    }
     throw error;
   }
 }

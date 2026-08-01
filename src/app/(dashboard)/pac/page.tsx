@@ -72,10 +72,13 @@ export default async function PacCatalogPage({
           <Link href="/pac/technical" className="button button-ghost">
             <Boxes size={17} /> Bibliothèque technique
           </Link>
-          <Link href="/pac/nouveau" className="button button-primary">
-            <CirclePlus size={17} /> Ajouter un modèle
-          </Link>
         </div>
+      </div>
+
+      <div className="alert alert-danger">
+        Ce catalogue historique est conservé en lecture seule pour la
+        traçabilité. Les équipements, combinaisons et documents se gèrent
+        désormais dans la bibliothèque technique.
       </div>
 
       <section className="card pac-toolbar">

@@ -1,6 +1,4 @@
-import "server-only";
-
-import type { Prisma } from "@/generated/prisma/client";
+import type { Prisma, PrismaClient } from "@/generated/prisma/client";
 import { EquipmentType } from "@/generated/prisma/enums";
 import type { CombinationInput } from "@/lib/hvac/combination-validation";
 import {
@@ -186,21 +184,34 @@ export function createCombinationRecord(
   input: CombinationInput,
   userId: string,
 ) {
-  return prisma.$transaction(async (transaction) => {
+  return createCombinationRecordWithDatabase(prisma, input, userId);
+}
+
+export function createCombinationRecordWithDatabase(
+  database: PrismaClient,
+  input: CombinationInput,
+  userId: string,
+) {
+  return database.$transaction(async (transaction) => {
     const validated = await validateCombination(
       lookupFor(transaction),
       input,
     );
-    const entity = await transaction.systemCombination.create({
-      data: {
-        ...validated.combination,
-        components: {
-          create: componentCreateData(
-            validated.indoorEquipment.id,
-            validated.outdoorEquipment.id,
-          ),
-        },
-      },
+    const created = await transaction.systemCombination.create({
+      data: validated.combination,
+      select: { id: true },
+    });
+    await transaction.combinationComponent.createMany({
+      data: componentCreateData(
+        validated.indoorEquipment.id,
+        validated.outdoorEquipment.id,
+      ).map((component) => ({
+        ...component,
+        systemCombinationId: created.id,
+      })),
+    });
+    const entity = await transaction.systemCombination.findUniqueOrThrow({
+      where: { id: created.id },
       select: {
         id: true,
         ...combinationSnapshotSelect,
@@ -253,17 +264,21 @@ export function updateCombinationRecord(
     await transaction.combinationComponent.deleteMany({
       where: { systemCombinationId: id },
     });
-    const after = await transaction.systemCombination.update({
+    await transaction.systemCombination.update({
       where: { id },
-      data: {
-        ...validated.combination,
-        components: {
-          create: componentCreateData(
-            validated.indoorEquipment.id,
-            validated.outdoorEquipment.id,
-          ),
-        },
-      },
+      data: validated.combination,
+    });
+    await transaction.combinationComponent.createMany({
+      data: componentCreateData(
+        validated.indoorEquipment.id,
+        validated.outdoorEquipment.id,
+      ).map((component) => ({
+        ...component,
+        systemCombinationId: id,
+      })),
+    });
+    const after = await transaction.systemCombination.findUniqueOrThrow({
+      where: { id },
       select: combinationSnapshotSelect,
     });
     await transaction.auditLog.create({

@@ -2058,6 +2058,90 @@ kbd {
   font-size: 10px;
   overflow-wrap: anywhere;
 }
+.button-danger {
+  color: #fff;
+  border-color: #a72828;
+  background: #a72828;
+}
+.button-danger:hover:not(:disabled) { background: #851f1f; }
+.technical-delete-dialog {
+  width: min(620px, calc(100vw - 32px));
+  max-height: calc(100vh - 40px);
+  overflow-y: auto;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  color: var(--text);
+  background: var(--surface);
+  padding: 22px;
+  box-shadow: 0 24px 80px rgb(8 18 35 / 30%);
+}
+.technical-delete-dialog::backdrop { background: rgb(8 18 35 / 58%); }
+.technical-delete-dialog-heading {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: start;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+.technical-delete-dialog-heading > span {
+  display: grid;
+  width: 40px;
+  height: 40px;
+  place-items: center;
+  border-radius: 9px;
+  color: #a72828;
+  background: rgb(167 40 40 / 10%);
+}
+.technical-delete-dialog-heading h2,
+.technical-delete-dialog-heading p { margin: 0; }
+.technical-delete-dialog > p { margin: 0 0 12px; }
+.technical-delete-facts,
+.technical-delete-blockers {
+  display: grid;
+  gap: 6px;
+  margin: 0 0 16px;
+  padding-left: 20px;
+}
+.technical-delete-blockers { margin: 8px 0 0; }
+.technical-delete-blockers a {
+  color: inherit;
+  font-weight: 800;
+  text-decoration: underline;
+}
+.technical-delete-blockers small {
+  display: block;
+  font-weight: 500;
+}
+.technical-delete-form {
+  display: grid;
+  gap: 14px;
+  margin-top: 16px;
+}
+.technical-delete-form label {
+  display: grid;
+  gap: 7px;
+  font-weight: 700;
+}
+.technical-delete-form code {
+  width: fit-content;
+  border-radius: 6px;
+  padding: 4px 7px;
+  color: var(--heading);
+  background: var(--background);
+}
+.technical-delete-form input {
+  width: 100%;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--heading);
+  background: var(--control-bg, var(--surface));
+  padding: 10px 11px;
+}
+.technical-delete-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 9px;
+}
 [data-theme="dark"] .document-origin-badge {
   color: #d7b4f7;
   background: #443053;

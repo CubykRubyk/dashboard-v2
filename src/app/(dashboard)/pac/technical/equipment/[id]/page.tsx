@@ -6,6 +6,7 @@ import {
   Boxes,
 } from "lucide-react";
 import { CatalogStatusToggle } from "@/components/pac/technical/CatalogStatusToggle";
+import { DeleteEntityDialog } from "@/components/pac/technical/DeleteEntityDialog";
 import { EquipmentForm } from "@/components/pac/technical/EquipmentForm";
 import { EquipmentCombinations } from "@/components/pac/technical/EquipmentCombinations";
 import { TechnicalDocumentLinks } from "@/components/pac/technical/TechnicalDocumentLinks";
@@ -14,6 +15,7 @@ import { getSession } from "@/lib/auth/session";
 import { equipmentTypeLabels } from "@/lib/hvac/labels";
 import { prisma } from "@/lib/prisma";
 import {
+  deleteEquipmentAction,
   toggleEquipmentAction,
   updateEquipmentAction,
 } from "../../actions";
@@ -67,6 +69,7 @@ export default async function EquipmentDetailPage({
             },
           },
           technicalDocuments: {
+            where: { technicalDocument: { active: true } },
             orderBy: {
               technicalDocument: { updatedAt: "desc" },
             },
@@ -105,6 +108,22 @@ export default async function EquipmentDetailPage({
     ]);
   if (!equipment) notFound();
   const canManage = canManageTechnicalCatalog(user?.role);
+  const deletionBlockers = equipment.combinationParts.map((part) => {
+    const indoor = part.systemCombination.components.find(
+      (component) => component.role === "INDOOR_UNIT",
+    );
+    const outdoor = part.systemCombination.components.find(
+      (component) => component.role === "OUTDOOR_UNIT",
+    );
+    return {
+      id: part.systemCombination.id,
+      label: part.systemCombination.name,
+      detail: `${
+        outdoor?.equipment.manufacturerReference ?? "UE manquante"
+      } + ${indoor?.equipment.manufacturerReference ?? "UI manquante"}`,
+      href: `/pac/technical/combinations/${part.systemCombination.id}`,
+    };
+  });
 
   return (
     <>
@@ -131,10 +150,25 @@ export default async function EquipmentDetailPage({
           </div>
         </div>
         {canManage && (
-          <CatalogStatusToggle
-            action={toggleEquipmentAction.bind(null, equipment.id, !equipment.active)}
-            active={equipment.active}
-          />
+          <div className="page-heading-actions">
+            <CatalogStatusToggle
+              action={toggleEquipmentAction.bind(null, equipment.id, !equipment.active)}
+              active={equipment.active}
+            />
+            <DeleteEntityDialog
+              action={deleteEquipmentAction.bind(null, equipment.id)}
+              buttonLabel="Supprimer l’équipement"
+              title="Supprimer cet équipement ?"
+              entityLabel={`${equipment.manufacturerReference} — ${equipment.name}`}
+              expectedConfirmation={equipment.manufacturerReference}
+              facts={[
+                `${equipment._count.technicalDocuments} association(s) vers des documents actifs seront retirées, sans supprimer les documents ni les PDF.`,
+                `${equipment._count.legacyMappings} liaison(s) de traçabilité seront retirées, sans modifier HeatPump.`,
+                "Aucune combinaison ne sera supprimée automatiquement.",
+              ]}
+              blockers={deletionBlockers}
+            />
+          </div>
         )}
       </div>
 

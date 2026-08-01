@@ -13,10 +13,24 @@ export class TechnicalCatalogError extends Error {
       | "INVALID_FILE"
       | "DUPLICATE_DOCUMENT"
       | "INVALID_ASSOCIATION"
-      | "FILE_NOT_FOUND",
+      | "FILE_NOT_FOUND"
+      | "RECONCILIATION_REQUIRED"
+      | "LEGACY_READ_ONLY"
+      | "DEPENDENCY_CONFLICT"
+      | "CONFIRMATION_REQUIRED",
   ) {
     super(message);
     this.name = "TechnicalCatalogError";
+  }
+}
+
+export class UploadReconciliationRequiredError extends TechnicalCatalogError {
+  constructor() {
+    super(
+      "L’état de l’enregistrement n’a pas pu être confirmé. Le fichier a été conservé pour réconciliation et ne sera jamais supprimé automatiquement.",
+      "RECONCILIATION_REQUIRED",
+    );
+    this.name = "UploadReconciliationRequiredError";
   }
 }
 

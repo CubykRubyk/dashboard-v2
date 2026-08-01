@@ -34,6 +34,7 @@ import {
 import {
   DuplicateTechnicalDocumentError,
   TechnicalCatalogError,
+  UploadReconciliationRequiredError,
 } from "../../src/lib/hvac/errors";
 
 function file(
@@ -116,6 +117,10 @@ test("a valid PDF is validated and ready for document creation", async () => {
     async persist() {
       events.push("persist");
       return { id: "document-a" };
+    },
+    async lookupPersisted() {
+      events.push("lookup");
+      return null;
     },
     async remove() {
       events.push("remove");
@@ -257,6 +262,9 @@ test("deactivation changes only status and preserves associations", () => {
 
 test("a newly written file is compensated if persistence fails", async () => {
   const events: string[] = [];
+  const rollbackError = Object.assign(new Error("database rolled back"), {
+    code: "P2034",
+  });
   await assert.rejects(
     persistUploadedDocument({
       async write() {
@@ -264,15 +272,67 @@ test("a newly written file is compensated if persistence fails", async () => {
       },
       async persist() {
         events.push("persist");
-        throw new Error("database failed");
+        throw rollbackError;
+      },
+      async lookupPersisted() {
+        events.push("lookup");
+        return null;
       },
       async remove() {
         events.push("remove");
       },
     }),
-    /database failed/,
+    /database rolled back/,
   );
-  assert.deepEqual(events, ["write", "persist", "remove"]);
+  assert.deepEqual(events, ["write", "persist", "lookup", "remove"]);
+});
+
+test("an ambiguous database result preserves an unreferenced file", async () => {
+  const events: string[] = [];
+  await assert.rejects(
+    persistUploadedDocument({
+      async write() {
+        events.push("write");
+      },
+      async persist() {
+        events.push("persist");
+        throw Object.assign(new Error("connection lost"), {
+          code: "P1001",
+        });
+      },
+      async lookupPersisted() {
+        events.push("lookup");
+        return null;
+      },
+      async remove() {
+        events.push("remove");
+      },
+    }),
+    UploadReconciliationRequiredError,
+  );
+  assert.deepEqual(events, ["write", "persist", "lookup"]);
+});
+
+test("a committed document wins over an ambiguous response", async () => {
+  const events: string[] = [];
+  const result = await persistUploadedDocument({
+    async write() {
+      events.push("write");
+    },
+    async persist() {
+      events.push("persist");
+      throw Object.assign(new Error("response lost"), { code: "P1002" });
+    },
+    async lookupPersisted() {
+      events.push("lookup");
+      return { id: "committed-document" };
+    },
+    async remove() {
+      events.push("remove");
+    },
+  });
+  assert.equal(result.id, "committed-document");
+  assert.deepEqual(events, ["write", "persist", "lookup"]);
 });
 
 test("path traversal and arbitrary storage names are rejected", () => {

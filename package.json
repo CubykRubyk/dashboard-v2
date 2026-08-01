@@ -9,6 +9,7 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
+    "prestart": "node scripts/verify-document-storage.mjs",
     "start": "next start",
     "lint": "eslint",
     "test": "tsx --test tests/**/*.test.ts",

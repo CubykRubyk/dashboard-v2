@@ -9,6 +9,7 @@ import {
   toggleCombinationRecord,
   updateCombinationRecord,
 } from "@/lib/hvac/combination-repository";
+import { deleteSystemCombinationRecord } from "@/lib/hvac/deletion-repository";
 import {
   combinationFormData,
   combinationInputSchema,
@@ -75,4 +76,31 @@ export async function toggleCombinationAction(
   } catch (error) {
     return actionErrorState(error, "Impossible de modifier le statut.");
   }
+}
+
+export async function deleteCombinationAction(
+  id: string,
+  _previousState: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  void _previousState;
+  let deleted = false;
+  try {
+    const user = await requireTechnicalCatalogAdmin();
+    const result = await deleteSystemCombinationRecord(
+      id,
+      String(formData.get("confirmation") ?? ""),
+      user.id,
+    );
+    deleted = result.deleted;
+    revalidateCombinationPaths(id);
+    revalidatePath("/pac/technical/documents");
+  } catch (error) {
+    return actionErrorState(error, "Impossible de supprimer la combinaison.");
+  }
+  redirect(
+    `/pac/technical/combinations?deleted=${
+      deleted ? "combination" : "already-removed"
+    }`,
+  );
 }

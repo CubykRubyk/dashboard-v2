@@ -18,6 +18,7 @@ import {
   updateManufacturerRecord,
   updateProductRangeRecord,
 } from "@/lib/hvac/catalog-repository";
+import { deleteEquipmentRecord } from "@/lib/hvac/deletion-repository";
 import {
   equipmentData,
   referenceNeedsReviewAfterEdit,
@@ -288,4 +289,30 @@ export async function toggleEquipmentAction(
   } catch (error) {
     return actionErrorState(error, "Impossible de modifier le statut.");
   }
+}
+
+export async function deleteEquipmentAction(
+  id: string,
+  _previousState: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  void _previousState;
+  let deleted = false;
+  try {
+    const user = await requireTechnicalCatalogAdmin();
+    const result = await deleteEquipmentRecord(
+      id,
+      String(formData.get("confirmation") ?? ""),
+      user.id,
+    );
+    deleted = result.deleted;
+    revalidateCatalog();
+    revalidatePath("/pac/technical/combinations");
+    revalidatePath("/pac/technical/documents");
+  } catch (error) {
+    return actionErrorState(error, "Impossible de supprimer l’équipement.");
+  }
+  redirect(
+    `/pac/technical?deleted=${deleted ? "equipment" : "already-removed"}`,
+  );
 }

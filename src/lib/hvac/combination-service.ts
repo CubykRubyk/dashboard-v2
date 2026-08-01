@@ -43,6 +43,53 @@ export interface CombinationValidationOptions {
   currentOutdoorEquipmentId?: string;
 }
 
+export interface SplitCombinationComponent {
+  equipmentId: string;
+  role: EquipmentType;
+  equipmentType: EquipmentType;
+}
+
+export function assertValidSplitComponents(
+  components: SplitCombinationComponent[],
+) {
+  const indoor = components.filter(
+    (component) => component.role === "INDOOR_UNIT",
+  );
+  const outdoor = components.filter(
+    (component) => component.role === "OUTDOOR_UNIT",
+  );
+  const duplicateIds = new Set(
+    components
+      .filter((component, index) => (
+        components.findIndex(
+          (candidate) => candidate.equipmentId === component.equipmentId,
+        ) !== index
+      ))
+      .map((component) => component.equipmentId),
+  );
+  const invalidRole = components.some((component) => (
+    component.role !== "INDOOR_UNIT"
+    && component.role !== "OUTDOOR_UNIT"
+  ));
+  const invalidType = components.some(
+    (component) => component.role !== component.equipmentType,
+  );
+
+  if (
+    indoor.length !== 1
+    || outdoor.length !== 1
+    || components.length !== 2
+    || duplicateIds.size > 0
+    || invalidRole
+    || invalidType
+  ) {
+    throw new TechnicalCatalogError(
+      "Une combinaison split doit contenir exactement une unité intérieure et une unité extérieure valides.",
+      "INVALID_COMPONENT",
+    );
+  }
+}
+
 function assertExpectedEquipment(
   equipment: CombinationEquipment | null,
   expectedType: "INDOOR_UNIT" | "OUTDOOR_UNIT",
@@ -135,6 +182,18 @@ export async function validateCombination(
     input.manufacturerId,
     options.currentOutdoorEquipmentId,
   );
+  assertValidSplitComponents([
+    {
+      equipmentId: indoorEquipment.id,
+      role: "INDOOR_UNIT",
+      equipmentType: indoorEquipment.type,
+    },
+    {
+      equipmentId: outdoorEquipment.id,
+      role: "OUTDOOR_UNIT",
+      equipmentType: outdoorEquipment.type,
+    },
+  ]);
 
   const duplicatePair = await lookup.findCombinationPairDuplicate(
     input.manufacturerId,

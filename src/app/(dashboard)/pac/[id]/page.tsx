@@ -1,15 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { Download, FileText, Power, PowerOff, Upload } from "lucide-react";
-import { DeletePacDocumentButton } from "@/components/pac/DeletePacDocumentButton";
-import { PacModelForm } from "@/components/pac/PacModelForm";
+import { ArrowLeft, Boxes, Download, FileText } from "lucide-react";
 import { prisma } from "@/lib/prisma";
-import {
-  deletePacDocument,
-  toggleHeatPump,
-  updateHeatPump,
-  uploadPacDocument,
-} from "../actions";
 
 export const dynamic = "force-dynamic";
 
@@ -29,18 +21,20 @@ export default async function PacModelPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const [model, brands, refrigerants] = await Promise.all([
-    prisma.heatPump.findUnique({
-      where: { id },
-      include: {
-        brand: true,
-        refrigerant: true,
-        documents: { orderBy: [{ primary: "desc" }, { createdAt: "desc" }] },
+  const model = await prisma.heatPump.findUnique({
+    where: { id },
+    include: {
+      brand: true,
+      refrigerant: true,
+      documents: { orderBy: [{ primary: "desc" }, { createdAt: "desc" }] },
+      equipmentMappings: {
+        select: { equipmentId: true },
       },
-    }),
-    prisma.pacBrand.findMany({ where: { active: true }, orderBy: { name: "asc" } }),
-    prisma.refrigerant.findMany({ where: { active: true }, orderBy: { name: "asc" } }),
-  ]);
+      combinationMapping: {
+        select: { systemCombinationId: true },
+      },
+    },
+  });
   if (!model) notFound();
   const tco2 = model.factoryChargeKg != null && model.refrigerant
     ? model.factoryChargeKg * model.refrigerant.gwp / 1000
@@ -50,6 +44,9 @@ export default async function PacModelPage({
     <>
       <div className="page-heading">
         <div>
+          <Link className="page-back-link" href="/pac">
+            <ArrowLeft size={15} /> Retour au catalogue historique
+          </Link>
           <p className="eyebrow">{model.brand.name}</p>
           <h1>{model.name}</h1>
           <p>
@@ -57,24 +54,31 @@ export default async function PacModelPage({
             {tco2 != null ? ` · ${tco2.toFixed(3)} t CO₂e` : ""}
           </p>
         </div>
-        <form action={toggleHeatPump.bind(null, model.id, !model.active)}>
-          <button className={`button ${model.active ? "button-ghost" : "button-primary"}`}>
-            {model.active ? <><PowerOff size={16} /> Désactiver</> : <><Power size={16} /> Activer</>}
-          </button>
-        </form>
+        <Link href="/pac/technical" className="button button-primary">
+          <Boxes size={16} /> Ouvrir la bibliothèque technique
+        </Link>
       </div>
 
-      <PacModelForm
-        action={updateHeatPump.bind(null, model.id)}
-        brands={brands.some((brand) => brand.id === model.brandId) ? brands : [model.brand, ...brands]}
-        refrigerants={
-          model.refrigerant && !refrigerants.some((item) => item.id === model.refrigerantId)
-            ? [model.refrigerant, ...refrigerants]
-            : refrigerants
-        }
-        model={model}
-        submitLabel="Enregistrer les modifications"
-      />
+      <div className="alert alert-danger">
+        Fiche historique en lecture seule. Toute modification doit être
+        effectuée dans le nouveau catalogue technique.
+      </div>
+
+      <section className="card combination-identification">
+        <div>
+          <p className="eyebrow">Données legacy</p>
+          <h2>Références conservées</h2>
+        </div>
+        <dl className="combination-technical-values">
+          <div><dt>Statut</dt><dd>{model.active ? "Actif" : "Inactif"}</dd></div>
+          <div><dt>Configuration</dt><dd>{model.configuration}</dd></div>
+          <div><dt>Référence UE</dt><dd>{model.outdoorReference || "—"}</dd></div>
+          <div><dt>Référence UI</dt><dd>{model.indoorReference || "—"}</dd></div>
+          <div><dt>Puissance</dt><dd>{model.powerKw == null ? "—" : `${model.powerKw} kW`}</dd></div>
+          <div><dt>Équipements migrés</dt><dd>{model.equipmentMappings.length}</dd></div>
+          <div><dt>Combinaison migrée</dt><dd>{model.combinationMapping ? "Oui" : "Non"}</dd></div>
+        </dl>
+      </section>
 
       <section className="card pac-documents-section">
         <div className="settings-heading">
@@ -83,14 +87,6 @@ export default async function PacModelPage({
             <div><h2>Documents techniques</h2><p>Manuels, fiches techniques, schémas et codes erreur.</p></div>
           </div>
         </div>
-        <form action={uploadPacDocument.bind(null, model.id)} className="pac-document-form">
-          <label>Nom<input name="name" required placeholder="Ex. Manuel d’installation FR" /></label>
-          <label>Type<select name="type" defaultValue="INSTALLATION_MANUAL">{Object.entries(documentLabels).map(([value, label]) => <option value={value} key={value}>{label}</option>)}</select></label>
-          <label>Version<input name="version" placeholder="Ex. 2025.1" /></label>
-          <label>Date<input name="documentDate" type="date" /></label>
-          <label className="pac-file-field">Fichier PDF<input name="file" type="file" accept="application/pdf,.pdf" required /></label>
-          <button className="button button-primary"><Upload size={16} /> Ajouter le document</button>
-        </form>
         {model.documents.length > 0 && (
           <div className="pac-document-list">
             {model.documents.map((document) => (
@@ -100,10 +96,12 @@ export default async function PacModelPage({
                 <Link className="mini-action" href={`/api/pac/documents/${document.id}`} target="_blank">
                   <Download size={14} /> Ouvrir
                 </Link>
-                <DeletePacDocumentButton action={deletePacDocument.bind(null, document.id)} name={document.name} />
               </div>
             ))}
           </div>
+        )}
+        {model.documents.length === 0 && (
+          <div className="technical-empty">Aucun document historique.</div>
         )}
       </section>
     </>

@@ -23,6 +23,7 @@ export default async function TechnicalCombinationsPage({
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const params = await searchParams;
+  const deleted = valueOf(params.deleted);
   const query = valueOf(params.q).trim().slice(0, 160);
   const manufacturerId = valueOf(params.manufacturer).slice(0, 100);
   const productRangeId = valueOf(params.range).slice(0, 100);
@@ -86,6 +87,14 @@ export default async function TechnicalCombinationsPage({
           </Link>
         )}
       </div>
+
+      {deleted && (
+        <div className="alert alert-success" role="status">
+          {deleted === "combination"
+            ? "La combinaison a été supprimée. Les équipements, documents et fichiers PDF ont été conservés."
+            : "La combinaison avait déjà été supprimée."}
+        </div>
+      )}
 
       {!canManage && (
         <div className="alert alert-danger technical-read-only-notice">
