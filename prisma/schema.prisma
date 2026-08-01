@@ -50,6 +50,11 @@ enum HeatPumpConfiguration {
   MONOBLOC
 }
 
+enum HeatPumpSplitLiaisonType {
+  FRIGORIFIC
+  HYDRAULIC
+}
+
 enum ElectricalSupply {
   SINGLE_PHASE
   THREE_PHASE
@@ -66,28 +71,28 @@ enum PacDocumentType {
 }
 
 model User {
-  id           String    @id @default(cuid())
-  email        String    @unique
+  id           String      @id @default(cuid())
+  email        String      @unique
   name         String
   passwordHash String
-  role         UserRole  @default(OPERATOR)
-  active       Boolean   @default(true)
+  role         UserRole    @default(OPERATOR)
+  active       Boolean     @default(true)
   lastLoginAt  DateTime?
-  createdAt    DateTime  @default(now())
-  updatedAt    DateTime  @updatedAt
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
   auditLogs    AuditLog[]
   workSheets   WorkSheet[]
 }
 
 model MaterialCategory {
-  id          String     @id @default(cuid())
-  key         String     @unique
-  name        String
-  position    Int        @default(0)
-  active      Boolean    @default(true)
-  createdAt   DateTime   @default(now())
-  updatedAt   DateTime   @updatedAt
-  materials   Material[]
+  id        String     @id @default(cuid())
+  key       String     @unique
+  name      String
+  position  Int        @default(0)
+  active    Boolean    @default(true)
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+  materials Material[]
 }
 
 model Material {
@@ -114,15 +119,15 @@ model Material {
 }
 
 model MaterialVariant {
-  id          String   @id @default(cuid())
-  name        String
-  reportLabel String
-  position    Int      @default(0)
-  active      Boolean  @default(true)
-  materialId  String
-  material    Material @relation(fields: [materialId], references: [id], onDelete: Cascade)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id             String          @id @default(cuid())
+  name           String
+  reportLabel    String
+  position       Int             @default(0)
+  active         Boolean         @default(true)
+  materialId     String
+  material       Material        @relation(fields: [materialId], references: [id], onDelete: Cascade)
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
   workSheetItems WorkSheetItem[]
 
   @@unique([materialId, name])
@@ -130,27 +135,28 @@ model MaterialVariant {
 }
 
 model WorkSheet {
-  id                String          @id @default(cuid())
-  legacyId          String?         @unique
+  id                String                  @id @default(cuid())
+  legacyId          String?                 @unique
   workDate          DateTime?
   client            String
   company           String
   installer         String
   eventId           String?
-  mainInstallations String          @default("")
-  otherMaterials    String          @default("")
-  reportText        String          @default("")
-  reportFrozen      Boolean         @default(false)
-  status            WorkSheetStatus @default(DRAFT)
+  mainInstallations String                  @default("")
+  otherMaterials    String                  @default("")
+  reportText        String                  @default("")
+  reportFrozen      Boolean                 @default(false)
+  status            WorkSheetStatus         @default(DRAFT)
   dolibarrSentAt    DateTime?
   dolibarrLastError String?
   archivedAt        DateTime?
   createdById       String
-  createdBy         User            @relation(fields: [createdById], references: [id], onDelete: Restrict)
+  createdBy         User                    @relation(fields: [createdById], references: [id], onDelete: Restrict)
+  installations     WorkSheetInstallation[]
   items             WorkSheetItem[]
   tags              WorkSheetTag[]
-  createdAt         DateTime        @default(now())
-  updatedAt         DateTime        @updatedAt
+  createdAt         DateTime                @default(now())
+  updatedAt         DateTime                @updatedAt
 
   @@index([workDate])
   @@index([archivedAt, createdAt])
@@ -211,6 +217,22 @@ model WorkSheetItem {
   @@index([materialId])
 }
 
+model WorkSheetInstallation {
+  id                  String           @id @default(cuid())
+  workSheetId         String
+  workSheet           WorkSheet        @relation(fields: [workSheetId], references: [id], onDelete: Cascade)
+  designationSnapshot String
+  quantity            Float            @default(1)
+  supplier            MaterialSupplier @default(INTERNAL)
+  sourceSupplier      String           @default("")
+  deliveryNote        String           @default("")
+  installed           Boolean          @default(true)
+  position            Int              @default(0)
+  createdAt           DateTime         @default(now())
+
+  @@index([workSheetId, position])
+}
+
 model AuditLog {
   id         String   @id @default(cuid())
   userId     String?
@@ -231,8 +253,24 @@ model PacBrand {
   name      String     @unique
   active    Boolean    @default(true)
   models    HeatPump[]
+  ranges    PacRange[]
   createdAt DateTime   @default(now())
   updatedAt DateTime   @updatedAt
+}
+
+model PacRange {
+  id        String        @id @default(cuid())
+  brandId   String
+  brand     PacBrand      @relation(fields: [brandId], references: [id], onDelete: Restrict)
+  name      String
+  active    Boolean       @default(true)
+  models    HeatPump[]
+  documents PacDocument[]
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+
+  @@unique([brandId, name])
+  @@index([brandId, active])
 }
 
 model Refrigerant {
@@ -246,60 +284,79 @@ model Refrigerant {
 }
 
 model HeatPump {
-  id                       String                @id @default(cuid())
+  id                       String                    @id @default(cuid())
   name                     String
   brandId                  String
-  brand                    PacBrand              @relation(fields: [brandId], references: [id], onDelete: Restrict)
-  type                     HeatPumpType          @default(AIR_WATER)
-  configuration            HeatPumpConfiguration @default(SPLIT)
-  electricalSupply         ElectricalSupply      @default(SINGLE_PHASE)
+  brand                    PacBrand                  @relation(fields: [brandId], references: [id], onDelete: Restrict)
+  rangeId                  String?
+  range                    PacRange?                 @relation(fields: [rangeId], references: [id], onDelete: SetNull)
+  type                     HeatPumpType              @default(AIR_WATER)
+  configuration            HeatPumpConfiguration     @default(SPLIT)
+  electricalSupply         ElectricalSupply          @default(SINGLE_PHASE)
   powerKw                  Float?
-  outdoorReference         String                @default("")
-  indoorReference          String                @default("")
+  outdoorReference         String                    @default("")
+  indoorReference          String                    @default("")
+  splitLiaisonType         HeatPumpSplitLiaisonType?
   refrigerantId            String?
-  refrigerant              Refrigerant?          @relation(fields: [refrigerantId], references: [id], onDelete: SetNull)
+  refrigerant              Refrigerant?              @relation(fields: [refrigerantId], references: [id], onDelete: SetNull)
   factoryChargeKg          Float?
   maxPipeLengthM           Float?
   maxHeightDifferenceM     Float?
   includedPipeLengthM      Float?
   additionalChargeGPerM    Float?
-  liquidPipeDiameter       String                @default("")
-  gasPipeDiameter          String                @default("")
-  powerCable               String                @default("")
-  recommendedProtection    String                @default("")
-  communicationCable       String                @default("")
-  hydraulicConnections     String                @default("")
-  minimumFlow              String                @default("")
-  minimumWaterVolume       String                @default("")
-  maximumFlowTemperature   String                @default("")
-  bufferTankRecommendation String                @default("")
-  commissioningNotes       String                @default("")
-  installationNotes        String                @default("")
-  internalNotes            String                @default("")
-  active                   Boolean               @default(true)
-  documents                PacDocument[]
-  createdAt                DateTime              @default(now())
-  updatedAt                DateTime              @updatedAt
+  liquidPipeDiameter       String                    @default("")
+  gasPipeDiameter          String                    @default("")
+  powerCable               String                    @default("")
+  indoorPowerCable         String                    @default("")
+  outdoorPowerCable        String                    @default("")
+  recommendedProtection    String                    @default("")
+  communicationCable       String                    @default("")
+  hydraulicConnections     String                    @default("")
+  minimumFlow              String                    @default("")
+  minimumWaterVolume       String                    @default("")
+  maximumFlowTemperature   String                    @default("")
+  bufferTankRecommendation String                    @default("")
+  commissioningNotes       String                    @default("")
+  installationNotes        String                    @default("")
+  internalNotes            String                    @default("")
+  active                   Boolean                   @default(true)
+  documentLinks            PacDocumentHeatPump[]
+  createdAt                DateTime                  @default(now())
+  updatedAt                DateTime                  @updatedAt
 
   @@unique([brandId, name])
   @@index([brandId, active])
+  @@index([rangeId])
   @@index([refrigerantId])
 }
 
 model PacDocument {
-  id          String          @id @default(cuid())
-  heatPumpId  String
-  heatPump    HeatPump        @relation(fields: [heatPumpId], references: [id], onDelete: Cascade)
-  name        String
-  type        PacDocumentType @default(OTHER)
+  id           String                @id @default(cuid())
+  rangeId      String?
+  range        PacRange?             @relation(fields: [rangeId], references: [id], onDelete: SetNull)
+  modelLinks   PacDocumentHeatPump[]
+  name         String
+  type         PacDocumentType       @default(OTHER)
   originalName String
-  storageName String          @unique
-  mimeType    String
-  sizeBytes   Int
-  version     String          @default("")
+  storageName  String                @unique
+  mimeType     String
+  sizeBytes    Int
+  language     String                @default("FR")
+  version      String                @default("")
   documentDate DateTime?
-  primary     Boolean         @default(false)
-  createdAt   DateTime        @default(now())
+  primary      Boolean               @default(false)
+  createdAt    DateTime              @default(now())
 
-  @@index([heatPumpId, type])
+  @@index([rangeId, type])
+}
+
+model PacDocumentHeatPump {
+  documentId String
+  document   PacDocument @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  heatPumpId String
+  heatPump   HeatPump    @relation(fields: [heatPumpId], references: [id], onDelete: Cascade)
+  createdAt  DateTime    @default(now())
+
+  @@id([documentId, heatPumpId])
+  @@index([heatPumpId])
 }

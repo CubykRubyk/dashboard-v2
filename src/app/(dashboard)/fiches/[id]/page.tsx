@@ -18,6 +18,7 @@ export default async function EditWorkSheetPage({
     prisma.workSheet.findFirst({
       where: { id, archivedAt: null },
       include: {
+        installations: { orderBy: { position: "asc" } },
         items: { orderBy: { position: "asc" } },
         tags: { include: { tag: true } },
       },
@@ -33,6 +34,27 @@ export default async function EditWorkSheetPage({
     installer: workSheet.installer,
     eventId: workSheet.eventId || "",
     mainInstallations: workSheet.mainInstallations,
+    installations: workSheet.installations.length
+      ? workSheet.installations.map((installation) => ({
+          designation: installation.designationSnapshot,
+          quantity: installation.quantity,
+          supplier: installation.supplier,
+          sourceSupplier: installation.sourceSupplier,
+          deliveryNote: installation.deliveryNote,
+          installed: installation.installed,
+        }))
+      : workSheet.mainInstallations
+          .split(/\r?\n/)
+          .map((designation) => designation.trim())
+          .filter(Boolean)
+          .map((designation) => ({
+            designation,
+            quantity: 1,
+            supplier: "INTERNAL" as const,
+            sourceSupplier: "",
+            deliveryNote: "",
+            installed: true,
+          })),
     otherMaterials: workSheet.otherMaterials,
     reportText: workSheet.reportText,
     reportFrozen: workSheet.reportFrozen,

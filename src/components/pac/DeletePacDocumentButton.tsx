@@ -4,9 +4,11 @@ import { Trash2 } from "lucide-react";
 
 export function DeletePacDocumentButton({
   action,
+  assignmentCount,
   name,
 }: {
   action: () => Promise<void>;
+  assignmentCount: number;
   name: string;
 }) {
   return (
@@ -15,7 +17,9 @@ export function DeletePacDocumentButton({
         className="mini-action tag-delete-action"
         title="Supprimer le document"
         onClick={(event) => {
-          if (!confirm(`Supprimer définitivement le document « ${name} » ?`)) {
+          if (!confirm(
+            `Supprimer définitivement le document « ${name} » pour ${assignmentCount} modèle${assignmentCount === 1 ? "" : "s"} ?`,
+          )) {
             event.preventDefault();
           }
         }}

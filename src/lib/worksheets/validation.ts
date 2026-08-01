@@ -9,6 +9,7 @@ type FinalizableWorkSheet = {
   reportText: string;
   tags: unknown[];
   items: unknown[];
+  installations: unknown[];
 };
 
 export function finalizationErrors(workSheet: FinalizableWorkSheet) {
@@ -22,6 +23,7 @@ export function finalizationErrors(workSheet: FinalizableWorkSheet) {
   if (!workSheet.reportText.trim()) errors.push("Le rapport ne peut pas être vide.");
   if (
     workSheet.items.length === 0 &&
+    workSheet.installations.length === 0 &&
     !workSheet.mainInstallations.trim() &&
     !workSheet.otherMaterials.trim()
   ) {

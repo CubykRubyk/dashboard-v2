@@ -1,5 +1,13 @@
 import Link from "next/link";
-import { CalendarDays, ChevronRight, CirclePlus, ClipboardList, RotateCcw, Search } from "lucide-react";
+import {
+  CalendarDays,
+  ChevronLeft,
+  ChevronRight,
+  CirclePlus,
+  ClipboardList,
+  RotateCcw,
+  Search,
+} from "lucide-react";
 import type { Prisma } from "@/generated/prisma/client";
 import { WorkSheetStatus } from "@/generated/prisma/enums";
 import { prisma } from "@/lib/prisma";
@@ -29,6 +37,20 @@ function valueOf(value: string | string[] | undefined) {
   return Array.isArray(value) ? value[0] || "" : value || "";
 }
 
+function monthValue(date: Date) {
+  return `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, "0")}`;
+}
+
+function shiftMonth(value: string, offset: number) {
+  const [year, month] = value.split("-").map(Number);
+  return monthValue(new Date(Date.UTC(year, month - 1 + offset, 1)));
+}
+
+function monthDate(value: string) {
+  const [year, month] = value.split("-").map(Number);
+  return new Date(Date.UTC(year, month - 1, 1));
+}
+
 export default async function WorkSheetsPage({
   searchParams,
 }: {
@@ -39,7 +61,12 @@ export default async function WorkSheetsPage({
   const installer = valueOf(params.installer).slice(0, 180);
   const company = valueOf(params.company).slice(0, 180);
   const tagId = valueOf(params.tag).slice(0, 80);
-  const month = /^\d{4}-\d{2}$/.test(valueOf(params.month)) ? valueOf(params.month) : "";
+  const requestedMonth = /^\d{4}-\d{2}$/.test(valueOf(params.month))
+    ? valueOf(params.month)
+    : "";
+  const allPeriod = valueOf(params.period) === "all";
+  const currentMonth = monthValue(new Date());
+  const month = allPeriod ? "" : requestedMonth || (query ? "" : currentMonth);
   const statusValue = valueOf(params.status);
   const status = Object.values(WorkSheetStatus).includes(statusValue as WorkSheetStatus)
     ? statusValue as WorkSheetStatus
@@ -77,13 +104,13 @@ export default async function WorkSheetsPage({
   }
   if (and.length) where.AND = and;
 
-  const [workSheets, installerRows, companyRows, tags] = await Promise.all([
+  const [workSheets, installerRows, companyRows, tags, latestWorkSheet] = await Promise.all([
     prisma.workSheet.findMany({
-    where,
-    orderBy: [{ workDate: "desc" }, { createdAt: "desc" }],
-    include: {
-      tags: { include: { tag: true } },
-    },
+      where,
+      orderBy: [{ workDate: "desc" }, { createdAt: "desc" }],
+      include: {
+        tags: { include: { tag: true } },
+      },
     }),
     prisma.workSheet.findMany({
       where: { archivedAt: null, installer: { not: "" } },
@@ -101,8 +128,32 @@ export default async function WorkSheetsPage({
       where: { active: true },
       orderBy: [{ position: "asc" }, { name: "asc" }],
     }),
+    prisma.workSheet.findFirst({
+      where: { archivedAt: null, workDate: { not: null } },
+      orderBy: { workDate: "desc" },
+      select: { workDate: true },
+    }),
   ]);
-  const isFiltered = Boolean(query || installer || company || tagId || month || status || dolibarr);
+  const isFiltered = Boolean(query || installer || company || tagId || status || dolibarr);
+  const selectedMonthDate = month ? monthDate(month) : null;
+  const previousMonth = month ? shiftMonth(month, -1) : "";
+  const nextMonth = month ? shiftMonth(month, 1) : "";
+  const nextDisabled = Boolean(month && nextMonth > currentMonth);
+  const latestMonth = latestWorkSheet?.workDate ? monthValue(latestWorkSheet.workDate) : "";
+
+  const navigationParams = new URLSearchParams();
+  if (installer) navigationParams.set("installer", installer);
+  if (company) navigationParams.set("company", company);
+  if (tagId) navigationParams.set("tag", tagId);
+  if (status) navigationParams.set("status", status);
+  if (dolibarr) navigationParams.set("dolibarr", dolibarr);
+  const monthHref = (value: string) => {
+    const next = new URLSearchParams(navigationParams);
+    next.set("month", value);
+    return `/fiches?${next.toString()}`;
+  };
+  const allPeriodParams = new URLSearchParams(navigationParams);
+  allPeriodParams.set("period", "all");
 
   const grouped = new Map<string, typeof workSheets>();
   for (const workSheet of workSheets) {
@@ -123,6 +174,49 @@ export default async function WorkSheetsPage({
           <CirclePlus size={17} /> Nouvelle fiche
         </Link>
       </div>
+
+      <nav className="card month-navigator" aria-label="Navigation par mois">
+        {month ? (
+          <Link className="month-navigation-button" href={monthHref(previousMonth)}>
+            <ChevronLeft size={17} />
+            <span><small>Mois précédent</small>{monthFormatter.format(monthDate(previousMonth))}</span>
+          </Link>
+        ) : <span />}
+        <div className="month-navigation-current">
+          <CalendarDays size={19} />
+          <span>
+            <small>{allPeriod || query && !requestedMonth ? "Période" : "Mois affiché"}</small>
+            <strong>
+              {allPeriod
+                ? "Toute la période"
+                : query && !requestedMonth
+                  ? "Résultats de recherche"
+                  : selectedMonthDate
+                    ? monthFormatter.format(selectedMonthDate)
+                    : "Toute la période"}
+            </strong>
+          </span>
+          <span className="month-result-count">{workSheets.length} fiche{workSheets.length > 1 ? "s" : ""}</span>
+        </div>
+        {month && !nextDisabled ? (
+          <Link className="month-navigation-button next" href={monthHref(nextMonth)}>
+            <span><small>Mois suivant</small>{monthFormatter.format(monthDate(nextMonth))}</span>
+            <ChevronRight size={17} />
+          </Link>
+        ) : <span />}
+        <div className="month-navigation-actions">
+          {month !== currentMonth && (
+            <Link className="button button-ghost button-small" href={monthHref(currentMonth)}>
+              Mois actuel
+            </Link>
+          )}
+          {!allPeriod && (
+            <Link className="button button-ghost button-small" href={`/fiches?${allPeriodParams.toString()}`}>
+              Toute la période
+            </Link>
+          )}
+        </div>
+      </nav>
 
       <form className="card worksheet-filters" method="get">
         <label className="filter-search">
@@ -154,10 +248,6 @@ export default async function WorkSheetsPage({
           </select>
         </label>
         <label>
-          <span>Mois</span>
-          <input name="month" type="month" defaultValue={month} />
-        </label>
-        <label>
           <span>État</span>
           <select name="status" defaultValue={status}>
             <option value="">Tous</option>
@@ -182,10 +272,20 @@ export default async function WorkSheetsPage({
         <section className="card worksheet-empty">
           <ClipboardList size={34} />
           <h2>{isFiltered ? "Aucune fiche ne correspond aux filtres" : "Aucune fiche pour le moment"}</h2>
-          <p>{isFiltered ? "Modifiez ou réinitialisez les critères de recherche." : "Créez la première fiche à partir du catalogue matériel."}</p>
-          {isFiltered
-            ? <Link className="button button-ghost" href="/fiches"><RotateCcw size={15} /> Réinitialiser les filtres</Link>
-            : <Link className="button button-primary" href="/fiches/nouvelle">Créer une fiche</Link>}
+          <p>
+            {isFiltered
+              ? "Modifiez ou réinitialisez les critères de recherche."
+              : month
+                ? `Aucune fiche enregistrée en ${monthFormatter.format(monthDate(month))}.`
+                : "Créez la première fiche à partir du catalogue matériel."}
+          </p>
+          <div className="worksheet-empty-actions">
+            {isFiltered
+              ? <Link className="button button-ghost" href="/fiches"><RotateCcw size={15} /> Réinitialiser les filtres</Link>
+              : latestMonth && latestMonth !== month
+                ? <Link className="button button-ghost" href={monthHref(latestMonth)}>Voir {monthFormatter.format(monthDate(latestMonth))}</Link>
+                : <Link className="button button-primary" href="/fiches/nouvelle">Créer une fiche</Link>}
+          </div>
         </section>
       ) : (
         <div className="worksheet-months">

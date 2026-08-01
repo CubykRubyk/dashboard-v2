@@ -2,10 +2,14 @@ import { CirclePlus, Layers3, Pencil, Power, PowerOff } from "lucide-react";
 import { MaterialInputType, MaterialUnit } from "@/generated/prisma/enums";
 import { prisma } from "@/lib/prisma";
 import { DismissibleDetails } from "@/components/ui/DismissibleDetails";
+import { DeleteCatalogButton } from "@/components/catalog/DeleteCatalogButton";
 import {
   createCategory,
   createMaterial,
   createVariant,
+  deleteCategory,
+  deleteMaterial,
+  deleteVariant,
   toggleMaterial,
   toggleVariant,
   updateCategory,
@@ -36,7 +40,13 @@ export default async function CatalogPage() {
     include: {
       materials: {
         orderBy: { position: "asc" },
-        include: { variants: { orderBy: { position: "asc" } } },
+        include: {
+          _count: { select: { workSheetItems: true } },
+          variants: {
+            orderBy: { position: "asc" },
+            include: { _count: { select: { workSheetItems: true } } },
+          },
+        },
       },
     },
   });
@@ -113,6 +123,13 @@ export default async function CatalogPage() {
                     <button className="button button-primary button-small">Enregistrer</button>
                   </form>
                 </DismissibleDetails>
+                {category.materials.length === 0 && (
+                  <DeleteCatalogButton
+                    action={deleteCategory.bind(null, category.id)}
+                    kind="catégorie"
+                    name={category.name}
+                  />
+                )}
               </div>
             </div>
             <div className="catalog-table-wrap">
@@ -152,6 +169,13 @@ export default async function CatalogPage() {
                                         {variant.active ? <PowerOff size={14} /> : <Power size={14} />}
                                       </button>
                                     </form>
+                                    <DeleteCatalogButton
+                                      action={deleteVariant.bind(null, variant.id)}
+                                      kind="modèle"
+                                      name={variant.name}
+                                      usageCount={variant._count.workSheetItems}
+                                      compact
+                                    />
                                   </div>
                                 </div>
                               ))}
@@ -172,20 +196,28 @@ export default async function CatalogPage() {
                         </form>
                       </td>
                       <td>
-                        <DismissibleDetails
-                          className="edit-details material-edit-details"
-                          summaryClassName="mini-action"
-                          summary={<><Pencil size={14} /> Modifier</>}
-                        >
-                          <form action={updateMaterial.bind(null, material.id)} className="edit-popover material-edit-form">
-                            <label>Catégorie<select name="categoryId" defaultValue={material.categoryId}>{categories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}</select></label>
-                            <label>Nom affiché<input name="name" required defaultValue={material.name} /></label>
-                            <label>Texte du rapport<input name="reportLabel" required defaultValue={material.reportLabel} /></label>
-                            <label>Type<select name="inputType" defaultValue={material.inputType}>{Object.entries(typeLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
-                            <label>Unité<select name="unit" defaultValue={material.unit}>{Object.entries(unitLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
-                            <button className="button button-primary button-small">Enregistrer les modifications</button>
-                          </form>
-                        </DismissibleDetails>
+                        <div className="catalog-row-actions">
+                          <DismissibleDetails
+                            className="edit-details material-edit-details"
+                            summaryClassName="mini-action"
+                            summary={<><Pencil size={14} /> Modifier</>}
+                          >
+                            <form action={updateMaterial.bind(null, material.id)} className="edit-popover material-edit-form">
+                              <label>Catégorie<select name="categoryId" defaultValue={material.categoryId}>{categories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}</select></label>
+                              <label>Nom affiché<input name="name" required defaultValue={material.name} /></label>
+                              <label>Texte du rapport<input name="reportLabel" required defaultValue={material.reportLabel} /></label>
+                              <label>Type<select name="inputType" defaultValue={material.inputType}>{Object.entries(typeLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
+                              <label>Unité<select name="unit" defaultValue={material.unit}>{Object.entries(unitLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
+                              <button className="button button-primary button-small">Enregistrer les modifications</button>
+                            </form>
+                          </DismissibleDetails>
+                          <DeleteCatalogButton
+                            action={deleteMaterial.bind(null, material.id)}
+                            kind="article"
+                            name={material.name}
+                            usageCount={material._count.workSheetItems}
+                          />
+                        </div>
                       </td>
                     </tr>
                   ))}

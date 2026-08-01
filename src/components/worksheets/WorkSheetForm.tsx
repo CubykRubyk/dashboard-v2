@@ -2,12 +2,13 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Archive, CheckCircle2, CloudDownload, Save, Send, Trash2 } from "lucide-react";
+import { Archive, CheckCircle2, CloudDownload, Plus, Save, Send, Trash2, X } from "lucide-react";
 import type { WorkSheetStatus } from "@/generated/prisma/enums";
 import { generateWorkSheetReport } from "@/lib/worksheets/report";
 import type {
   CatalogCategory,
   WorkSheetFormData,
+  WorkSheetInstallationInput,
   WorkSheetSelection,
   WorkSheetTagOption,
 } from "@/lib/worksheets/types";
@@ -36,6 +37,7 @@ const emptyData: Omit<WorkSheetFormData, "selections"> = {
   installer: "",
   eventId: "",
   mainInstallations: "",
+  installations: [],
   otherMaterials: "",
   reportText: "",
   reportFrozen: false,
@@ -174,10 +176,48 @@ export function WorkSheetForm({
     });
   };
 
+  const addInstallation = () => {
+    updateData({
+      installations: [
+        ...data.installations,
+        {
+          designation: "",
+          quantity: 1,
+          supplier: "INTERNAL",
+          sourceSupplier: "",
+          deliveryNote: "",
+          installed: true,
+        },
+      ],
+    });
+  };
+
+  const updateInstallation = (
+    index: number,
+    patch: Partial<WorkSheetInstallationInput>,
+  ) => {
+    updateData({
+      installations: data.installations.map((installation, currentIndex) =>
+        currentIndex === index ? { ...installation, ...patch } : installation,
+      ),
+    });
+  };
+
+  const removeInstallation = (index: number) => {
+    updateData({
+      installations: data.installations.filter((_, currentIndex) => currentIndex !== index),
+    });
+  };
+
   const save = async (redirectAfterCreate = true): Promise<string | null> => {
     setSaving(true);
     setMessage("");
-    const payload = { ...data, reportText: report, reportFrozen: true };
+    const payload = {
+      ...data,
+      installations: data.installations.filter((installation) => installation.designation.trim()),
+      reportText: report,
+      reportFrozen: true,
+    };
     const response = await fetch(
       workSheetId ? `/api/fiches/${workSheetId}` : "/api/fiches",
       {
@@ -348,13 +388,89 @@ export function WorkSheetForm({
 
         <section className="card">
           <div className="worksheet-section-heading">
-            <p className="eyebrow">Intervention</p>
-            <h2>Installations principales</h2>
+            <div>
+              <p className="eyebrow">Intervention</p>
+              <h2>Installations principales</h2>
+            </div>
+            <button className="button button-ghost button-small" type="button" onClick={addInstallation}>
+              <Plus size={15} /> Ajouter
+            </button>
           </div>
-          <label className="worksheet-textarea">
-            Description <small>Une installation par ligne</small>
-            <textarea rows={4} value={data.mainInstallations} onChange={(e) => updateData({ mainInstallations: e.target.value })} placeholder={"PAC A/E LG 9kw DUO MONO\nballon ECS intégré"} />
-          </label>
+          {data.installations.length ? (
+            <div className="installation-rows">
+              {data.installations.map((installation, index) => (
+                <div className="installation-row" key={index}>
+                  <label className="installation-designation">
+                    Désignation
+                    <input
+                      value={installation.designation}
+                      onChange={(event) => updateInstallation(index, { designation: event.target.value })}
+                      placeholder="Ex. PAC LG THERMA V"
+                    />
+                  </label>
+                  <label>
+                    Qté
+                    <input
+                      type="number"
+                      min="0.1"
+                      step="0.1"
+                      value={installation.quantity}
+                      onChange={(event) => updateInstallation(index, { quantity: Number(event.target.value) })}
+                    />
+                  </label>
+                  <label>
+                    Fourni par
+                    <select
+                      value={installation.supplier}
+                      onChange={(event) => updateInstallation(index, {
+                        supplier: event.target.value as WorkSheetInstallationInput["supplier"],
+                      })}
+                    >
+                      <option value="INTERNAL">Nous</option>
+                      <option value="COMPANY">Société cliente</option>
+                    </select>
+                  </label>
+                  <label>
+                    Provenance
+                    <input
+                      value={installation.sourceSupplier}
+                      onChange={(event) => updateInstallation(index, { sourceSupplier: event.target.value })}
+                      placeholder="Ex. AXDIS"
+                    />
+                  </label>
+                  <label>
+                    N° BL
+                    <input
+                      value={installation.deliveryNote}
+                      onChange={(event) => updateInstallation(index, { deliveryNote: event.target.value })}
+                      placeholder="Ex. BL12345"
+                    />
+                  </label>
+                  <label className="installation-installed">
+                    <input
+                      type="checkbox"
+                      checked={!installation.installed}
+                      onChange={(event) => updateInstallation(index, { installed: !event.target.checked })}
+                    />
+                    Non installé
+                  </label>
+                  <button
+                    className="installation-remove"
+                    type="button"
+                    aria-label={`Supprimer l’installation ${index + 1}`}
+                    onClick={() => removeInstallation(index)}
+                  >
+                    <X size={16} />
+                  </button>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <button className="installation-empty" type="button" onClick={addInstallation}>
+              <Plus size={20} />
+              Ajouter la première installation principale
+            </button>
+          )}
         </section>
 
         <div className="worksheet-categories">

@@ -37,6 +37,15 @@ export interface WorkSheetSelection {
   installed: boolean;
 }
 
+export interface WorkSheetInstallationInput {
+  designation: string;
+  quantity: number;
+  supplier: "INTERNAL" | "COMPANY";
+  sourceSupplier: string;
+  deliveryNote: string;
+  installed: boolean;
+}
+
 export interface WorkSheetFormData {
   workDate: string;
   client: string;
@@ -44,6 +53,7 @@ export interface WorkSheetFormData {
   installer: string;
   eventId: string;
   mainInstallations: string;
+  installations: WorkSheetInstallationInput[];
   otherMaterials: string;
   reportText: string;
   reportFrozen: boolean;

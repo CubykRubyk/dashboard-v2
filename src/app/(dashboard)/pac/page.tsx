@@ -1,8 +1,22 @@
 import Link from "next/link";
-import { CirclePlus, Droplets, Factory, Search, Snowflake } from "lucide-react";
+import { CirclePlus, Droplets, Factory, Layers, Power, PowerOff, Save, Search, Snowflake } from "lucide-react";
+import { DeletePacReferenceButton } from "@/components/pac/DeletePacReferenceButton";
 import { DismissibleDetails } from "@/components/ui/DismissibleDetails";
 import { prisma } from "@/lib/prisma";
-import { createPacBrand, createRefrigerant } from "./actions";
+import {
+  createPacBrand,
+  createPacRange,
+  createRefrigerant,
+  deletePacBrand,
+  deletePacRange,
+  deleteRefrigerant,
+  togglePacBrand,
+  togglePacRange,
+  toggleRefrigerant,
+  updatePacBrand,
+  updatePacRange,
+  updateRefrigerant,
+} from "./actions";
 
 export const dynamic = "force-dynamic";
 
@@ -12,6 +26,16 @@ const typeLabels = {
   GROUND_WATER: "Sol / eau",
 } as const;
 
+const configurationLabels = {
+  MONOBLOC: "Monobloc",
+  SPLIT: "Split",
+} as const;
+
+const splitLiaisonLabels = {
+  FRIGORIFIC: "liaison frigorifique",
+  HYDRAULIC: "liaison hydraulique",
+} as const;
+
 export default async function PacCatalogPage({
   searchParams,
 }: {
@@ -19,8 +43,15 @@ export default async function PacCatalogPage({
 }) {
   const filters = await searchParams;
   const q = filters.q?.trim() || "";
-  const [brands, refrigerants, models] = await Promise.all([
+  const [brands, ranges, refrigerants, models] = await Promise.all([
     prisma.pacBrand.findMany({ orderBy: { name: "asc" }, include: { _count: { select: { models: true } } } }),
+    prisma.pacRange.findMany({
+      orderBy: [{ brand: { name: "asc" } }, { name: "asc" }],
+      include: {
+        brand: true,
+        _count: { select: { models: true, documents: true } },
+      },
+    }),
     prisma.refrigerant.findMany({ orderBy: { name: "asc" }, include: { _count: { select: { models: true } } } }),
     prisma.heatPump.findMany({
       where: {
@@ -35,7 +66,12 @@ export default async function PacCatalogPage({
           ],
         } : {}),
       },
-      include: { brand: true, refrigerant: true, _count: { select: { documents: true } } },
+      include: {
+        brand: true,
+        refrigerant: true,
+        range: { include: { documents: { select: { id: true } } } },
+        documentLinks: { select: { documentId: true } },
+      },
       orderBy: [{ brand: { name: "asc" } }, { name: "asc" }],
     }),
   ]);
@@ -61,18 +97,103 @@ export default async function PacCatalogPage({
           <button className="button button-ghost">Filtrer</button>
         </form>
         <div className="pac-reference-actions">
-          <DismissibleDetails summaryClassName="button button-ghost button-small" summary={<><Factory size={15} /> Marques ({brands.length})</>}>
-            <form action={createPacBrand} className="pac-quick-form">
-              <label>Nouvelle marque<input name="name" required placeholder="Ex. Daikin" /></label>
-              <button className="button button-primary button-small">Ajouter</button>
-            </form>
+          <DismissibleDetails className="pac-reference-details" summaryClassName="button button-ghost button-small" summary={<><Factory size={15} /> Marques ({brands.length})</>}>
+            <div className="pac-reference-panel">
+              <div className="pac-reference-heading">
+                <div><strong>Marques PAC</strong><small>{brands.length} marque{brands.length === 1 ? "" : "s"} enregistrée{brands.length === 1 ? "" : "s"}</small></div>
+              </div>
+              <form action={createPacBrand} className="pac-reference-add">
+                <label>Nouvelle marque<input name="name" required placeholder="Ex. Daikin" /></label>
+                <button className="button button-primary button-small"><CirclePlus size={15} /> Ajouter</button>
+              </form>
+              <div className="pac-reference-list">
+                {brands.map((brand) => (
+                  <div className={`pac-reference-row${brand.active ? "" : " inactive"}`} key={brand.id}>
+                    <form action={updatePacBrand.bind(null, brand.id)} className="pac-reference-edit">
+                      <input name="name" defaultValue={brand.name} required aria-label={`Nom de la marque ${brand.name}`} />
+                      <span>{brand._count.models} modèle{brand._count.models === 1 ? "" : "s"}</span>
+                      <button className="mini-action" title="Enregistrer" aria-label={`Enregistrer ${brand.name}`}><Save size={14} /></button>
+                    </form>
+                    <form action={togglePacBrand.bind(null, brand.id, !brand.active)}>
+                      <button className="mini-action" title={brand.active ? "Désactiver" : "Activer"} aria-label={`${brand.active ? "Désactiver" : "Activer"} ${brand.name}`}>
+                        {brand.active ? <PowerOff size={14} /> : <Power size={14} />}
+                      </button>
+                    </form>
+                    {brand._count.models === 0 && <DeletePacReferenceButton action={deletePacBrand.bind(null, brand.id)} label={brand.name} />}
+                  </div>
+                ))}
+              </div>
+            </div>
           </DismissibleDetails>
-          <DismissibleDetails summaryClassName="button button-ghost button-small" summary={<><Droplets size={15} /> Réfrigérants ({refrigerants.length})</>}>
-            <form action={createRefrigerant} className="pac-quick-form refrigerant-form">
-              <label>Réfrigérant<input name="name" required placeholder="Ex. R32" /></label>
-              <label>GWP<input name="gwp" required type="number" min="0" step="0.01" /></label>
-              <button className="button button-primary button-small">Ajouter</button>
-            </form>
+          <DismissibleDetails className="pac-reference-details" summaryClassName="button button-ghost button-small" summary={<><Layers size={15} /> Gammes ({ranges.length})</>}>
+            <div className="pac-reference-panel">
+              <div className="pac-reference-heading">
+                <div><strong>Gammes PAC</strong><small>Une gamme regroupe les modèles qui partagent leurs documents.</small></div>
+              </div>
+              <form action={createPacRange} className="pac-reference-add range-add">
+                <label>
+                  Marque
+                  <select name="brandId" required defaultValue="">
+                    <option value="" disabled>Sélectionner</option>
+                    {brands.filter((brand) => brand.active).map((brand) => (
+                      <option value={brand.id} key={brand.id}>{brand.name}</option>
+                    ))}
+                  </select>
+                </label>
+                <label>Nouvelle gamme<input name="name" required placeholder="Ex. Nimbus Plus S Net R32" /></label>
+                <button className="button button-primary button-small"><CirclePlus size={15} /> Ajouter</button>
+              </form>
+              <div className="pac-reference-list">
+                {ranges.map((range) => (
+                  <div className={`pac-reference-row${range.active ? "" : " inactive"}`} key={range.id}>
+                    <form action={updatePacRange.bind(null, range.id)} className="pac-reference-edit range-edit">
+                      <span className="pac-range-brand">{range.brand.name}</span>
+                      <input name="name" defaultValue={range.name} required aria-label={`Nom de la gamme ${range.name}`} />
+                      <span>{range._count.models} modèle{range._count.models === 1 ? "" : "s"} · {range._count.documents} doc.</span>
+                      <button className="mini-action" title="Enregistrer" aria-label={`Enregistrer ${range.name}`}><Save size={14} /></button>
+                    </form>
+                    <form action={togglePacRange.bind(null, range.id, !range.active)}>
+                      <button className="mini-action" title={range.active ? "Désactiver" : "Activer"} aria-label={`${range.active ? "Désactiver" : "Activer"} ${range.name}`}>
+                        {range.active ? <PowerOff size={14} /> : <Power size={14} />}
+                      </button>
+                    </form>
+                    {range._count.models === 0 && range._count.documents === 0 && (
+                      <DeletePacReferenceButton action={deletePacRange.bind(null, range.id)} label={range.name} />
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          </DismissibleDetails>
+          <DismissibleDetails className="pac-reference-details" summaryClassName="button button-ghost button-small" summary={<><Droplets size={15} /> Réfrigérants ({refrigerants.length})</>}>
+            <div className="pac-reference-panel refrigerant-panel">
+              <div className="pac-reference-heading">
+                <div><strong>Réfrigérants</strong><small>{refrigerants.length} réfrigérant{refrigerants.length === 1 ? "" : "s"} enregistré{refrigerants.length === 1 ? "" : "s"}</small></div>
+              </div>
+              <form action={createRefrigerant} className="pac-reference-add refrigerant-add">
+                <label>Réfrigérant<input name="name" required placeholder="Ex. R32" /></label>
+                <label>GWP<input name="gwp" required type="number" min="0" step="0.01" /></label>
+                <button className="button button-primary button-small"><CirclePlus size={15} /> Ajouter</button>
+              </form>
+              <div className="pac-reference-list">
+                {refrigerants.map((refrigerant) => (
+                  <div className={`pac-reference-row${refrigerant.active ? "" : " inactive"}`} key={refrigerant.id}>
+                    <form action={updateRefrigerant.bind(null, refrigerant.id)} className="pac-reference-edit refrigerant-edit">
+                      <input name="name" defaultValue={refrigerant.name} required aria-label={`Nom du réfrigérant ${refrigerant.name}`} />
+                      <input name="gwp" defaultValue={refrigerant.gwp} required type="number" min="0" step="0.01" aria-label={`GWP de ${refrigerant.name}`} />
+                      <span>{refrigerant._count.models} modèle{refrigerant._count.models === 1 ? "" : "s"}</span>
+                      <button className="mini-action" title="Enregistrer" aria-label={`Enregistrer ${refrigerant.name}`}><Save size={14} /></button>
+                    </form>
+                    <form action={toggleRefrigerant.bind(null, refrigerant.id, !refrigerant.active)}>
+                      <button className="mini-action" title={refrigerant.active ? "Désactiver" : "Activer"} aria-label={`${refrigerant.active ? "Désactiver" : "Activer"} ${refrigerant.name}`}>
+                        {refrigerant.active ? <PowerOff size={14} /> : <Power size={14} />}
+                      </button>
+                    </form>
+                    {refrigerant._count.models === 0 && <DeletePacReferenceButton action={deleteRefrigerant.bind(null, refrigerant.id)} label={refrigerant.name} />}
+                  </div>
+                ))}
+              </div>
+            </div>
           </DismissibleDetails>
         </div>
       </section>
@@ -89,18 +210,30 @@ export default async function PacCatalogPage({
             const tco2 = model.factoryChargeKg != null && model.refrigerant
               ? model.factoryChargeKg * model.refrigerant.gwp / 1000
               : null;
+            const documentCount = new Set([
+              ...model.documentLinks.map((link) => link.documentId),
+              ...(model.range?.documents.map((document) => document.id) || []),
+            ]).size;
             return (
               <Link href={`/pac/${model.id}`} className={`card pac-model-card${model.active ? "" : " inactive"}`} key={model.id}>
                 <div className="pac-model-top">
-                  <span className="pac-brand">{model.brand.name}</span>
+                  <span className="pac-brand">{model.brand.name}{model.range ? ` · ${model.range.name}` : ""}</span>
                   <span className={`status-dot ${model.active ? "active" : ""}`}>{model.active ? "Actif" : "Inactif"}</span>
                 </div>
                 <h2>{model.name}</h2>
-                <p>{typeLabels[model.type]} · {model.powerKw != null ? `${model.powerKw} kW` : "Puissance non renseignée"}</p>
+                <p>
+                  {typeLabels[model.type]}
+                  {" · "}
+                  {model.configuration === "SPLIT" && model.splitLiaisonType
+                    ? `${configurationLabels[model.configuration]} ${splitLiaisonLabels[model.splitLiaisonType]}`
+                    : configurationLabels[model.configuration]}
+                  {" · "}
+                  {model.powerKw != null ? `${model.powerKw} kW` : "Puissance non renseignée"}
+                </p>
                 <div className="pac-model-meta">
                   <span><strong>{model.refrigerant?.name || "—"}</strong> Réfrigérant</span>
                   <span><strong>{tco2 != null ? `${tco2.toFixed(3)} t` : "—"}</strong> CO₂e</span>
-                  <span><strong>{model._count.documents}</strong> Documents</span>
+                  <span><strong>{documentCount}</strong> Documents</span>
                 </div>
                 {(model.outdoorReference || model.indoorReference) && (
                   <small>{[model.outdoorReference, model.indoorReference].filter(Boolean).join(" · ")}</small>

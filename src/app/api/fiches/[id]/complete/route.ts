@@ -12,7 +12,7 @@ export async function POST(
   const { id } = await params;
   const workSheet = await prisma.workSheet.findFirst({
     where: { id, archivedAt: null },
-    include: { items: true, tags: true },
+    include: { installations: true, items: true, tags: true },
   });
   if (!workSheet) return NextResponse.json({ error: "Fiche introuvable." }, { status: 404 });
   const errors = finalizationErrors(workSheet);

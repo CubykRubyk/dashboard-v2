@@ -1,7 +1,12 @@
 import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "@/generated/prisma/client";
 
-const globalForPrisma = globalThis as unknown as { prisma?: PrismaClient };
+const PRISMA_CLIENT_SIGNATURE = "20260801170000_pac_document_library";
+
+const globalForPrisma = globalThis as unknown as {
+  prisma?: PrismaClient;
+  prismaSignature?: string;
+};
 
 function createPrismaClient() {
   const connectionString = process.env.DATABASE_URL;
@@ -11,5 +16,23 @@ function createPrismaClient() {
   });
 }
 
-export const prisma = globalForPrisma.prisma ?? createPrismaClient();
-if (process.env.NODE_ENV !== "production") globalForPrisma.prisma = prisma;
+function getPrismaClient() {
+  if (process.env.NODE_ENV === "production") {
+    return createPrismaClient();
+  }
+
+  if (
+    globalForPrisma.prisma &&
+    globalForPrisma.prismaSignature === PRISMA_CLIENT_SIGNATURE
+  ) {
+    return globalForPrisma.prisma;
+  }
+
+  void globalForPrisma.prisma?.$disconnect().catch(() => undefined);
+  const prisma = createPrismaClient();
+  globalForPrisma.prisma = prisma;
+  globalForPrisma.prismaSignature = PRISMA_CLIENT_SIGNATURE;
+  return prisma;
+}
+
+export const prisma = getPrismaClient();
