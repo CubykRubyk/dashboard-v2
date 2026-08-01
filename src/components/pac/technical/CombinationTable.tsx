@@ -2,7 +2,7 @@ import Link from "next/link";
 import { AlertTriangle, ArrowUpRight } from "lucide-react";
 import type { EquipmentType } from "@/generated/prisma/enums";
 
-interface CombinationEquipmentRow {
+export interface CombinationEquipmentRow {
   manufacturerReference: string;
   name: string;
   type: EquipmentType;
@@ -10,7 +10,7 @@ interface CombinationEquipmentRow {
   referenceNeedsReview: boolean;
 }
 
-interface CombinationRow {
+export interface CombinationRow {
   id: string;
   name: string;
   active: boolean;

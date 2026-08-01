@@ -2,6 +2,7 @@ import Link from "next/link";
 import { CirclePlus } from "lucide-react";
 import { CatalogPagination } from "@/components/pac/technical/CatalogPagination";
 import { CombinationFilters } from "@/components/pac/technical/CombinationFilters";
+import { CombinationCards } from "@/components/pac/technical/CombinationCards";
 import { CombinationTable } from "@/components/pac/technical/CombinationTable";
 import { canManageTechnicalCatalog } from "@/lib/auth/permissions";
 import { getSession } from "@/lib/auth/session";
@@ -21,6 +22,8 @@ export interface CombinationCatalogProps {
   eyebrow: string;
   title: string;
   description: string;
+  presentation?: "table" | "cards";
+  technicalLibraryHref?: string;
 }
 
 export async function CombinationCatalog({
@@ -29,6 +32,8 @@ export async function CombinationCatalog({
   eyebrow,
   title,
   description,
+  presentation = "table",
+  technicalLibraryHref,
 }: CombinationCatalogProps) {
   const params = await searchParams;
   const deleted = valueOf(params.deleted);
@@ -86,14 +91,21 @@ export async function CombinationCatalog({
           <h1>{title}</h1>
           <p>{description}</p>
         </div>
-        {canManage && (
-          <Link
-            href="/pac/technical/combinations/new"
-            className="button button-primary"
-          >
-            <CirclePlus size={17} /> Ajouter une combinaison
-          </Link>
-        )}
+        <div className="page-heading-actions">
+          {canManage && (
+            <Link
+              href="/pac/technical/combinations/new"
+              className="button button-primary"
+            >
+              <CirclePlus size={17} /> Ajouter une combinaison
+            </Link>
+          )}
+          {technicalLibraryHref && (
+            <Link href={technicalLibraryHref} className="button button-ghost">
+              Bibliothèque technique
+            </Link>
+          )}
+        </div>
       </div>
 
       {deleted && (
@@ -131,14 +143,25 @@ export async function CombinationCatalog({
         )}
       </div>
 
-      <CombinationTable
-        combinations={result.combinations}
-        emptyMessage={
-          result.overallTotal === 0
-            ? "Aucun modèle PAC n’a encore été créé à partir d’une combinaison UI + UE."
-            : "Aucun modèle PAC ne correspond aux critères."
-        }
-      />
+      {presentation === "cards" ? (
+        <CombinationCards
+          combinations={result.combinations}
+          emptyMessage={
+            result.overallTotal === 0
+              ? "Aucun modèle PAC n’a encore été créé à partir d’une combinaison UI + UE."
+              : "Aucun modèle PAC ne correspond aux critères."
+          }
+        />
+      ) : (
+        <CombinationTable
+          combinations={result.combinations}
+          emptyMessage={
+            result.overallTotal === 0
+              ? "Aucun modèle PAC n’a encore été créé à partir d’une combinaison UI + UE."
+              : "Aucun modèle PAC ne correspond aux critères."
+          }
+        />
+      )}
       <CatalogPagination
         currentPage={requestedPage}
         totalPages={totalPages}
