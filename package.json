@@ -9,12 +9,15 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
+    "prestart": "node scripts/verify-document-storage.mjs",
     "start": "next start",
     "lint": "eslint",
+    "test": "tsx --test --test-concurrency=1 tests/**/*.test.ts",
     "db:generate": "prisma generate",
     "db:migrate": "prisma migrate dev",
     "db:deploy": "prisma migrate deploy",
-    "db:seed": "tsx prisma/seed.ts"
+    "db:seed": "tsx prisma/seed.ts",
+    "documents:reconciliation:inventory": "node scripts/inventory-upload-reconciliation.mjs"
   },
   "dependencies": {
     "@prisma/adapter-pg": "^7.9.1",

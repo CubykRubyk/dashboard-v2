@@ -1,18 +1,7 @@
 import Link from "next/link";
-import { CirclePlus, Droplets, Factory, Power, PowerOff, Save, Search, Snowflake } from "lucide-react";
-import { DeletePacReferenceButton } from "@/components/pac/DeletePacReferenceButton";
+import { Boxes, Droplets, Factory, Search, Snowflake } from "lucide-react";
 import { DismissibleDetails } from "@/components/ui/DismissibleDetails";
 import { prisma } from "@/lib/prisma";
-import {
-  createPacBrand,
-  createRefrigerant,
-  deletePacBrand,
-  deleteRefrigerant,
-  togglePacBrand,
-  toggleRefrigerant,
-  updatePacBrand,
-  updateRefrigerant,
-} from "./actions";
 
 export const dynamic = "force-dynamic";
 
@@ -68,9 +57,17 @@ export default async function PacCatalogPage({
           <h1>Catalogue PAC</h1>
           <p>Modèles, données d’installation, réfrigérants et documentation technique.</p>
         </div>
-        <Link href="/pac/nouveau" className="button button-primary">
-          <CirclePlus size={17} /> Ajouter un modèle
-        </Link>
+        <div className="page-heading-actions">
+          <Link href="/pac/technical" className="button button-ghost">
+            <Boxes size={17} /> Bibliothèque technique
+          </Link>
+        </div>
+      </div>
+
+      <div className="alert alert-danger">
+        Ce catalogue historique est conservé en lecture seule pour la
+        traçabilité. Les équipements, combinaisons et documents se gèrent
+        désormais dans la bibliothèque technique.
       </div>
 
       <section className="card pac-toolbar">
@@ -86,24 +83,14 @@ export default async function PacCatalogPage({
               <div className="pac-reference-heading">
                 <div><strong>Marques PAC</strong><small>{brands.length} marque{brands.length === 1 ? "" : "s"} enregistrée{brands.length === 1 ? "" : "s"}</small></div>
               </div>
-              <form action={createPacBrand} className="pac-reference-add">
-                <label>Nouvelle marque<input name="name" required placeholder="Ex. Daikin" /></label>
-                <button className="button button-primary button-small"><CirclePlus size={15} /> Ajouter</button>
-              </form>
               <div className="pac-reference-list">
                 {brands.map((brand) => (
                   <div className={`pac-reference-row${brand.active ? "" : " inactive"}`} key={brand.id}>
-                    <form action={updatePacBrand.bind(null, brand.id)} className="pac-reference-edit">
-                      <input name="name" defaultValue={brand.name} required aria-label={`Nom de la marque ${brand.name}`} />
+                    <div className="pac-reference-edit">
+                      <strong>{brand.name}</strong>
                       <span>{brand._count.models} modèle{brand._count.models === 1 ? "" : "s"}</span>
-                      <button className="mini-action" title="Enregistrer" aria-label={`Enregistrer ${brand.name}`}><Save size={14} /></button>
-                    </form>
-                    <form action={togglePacBrand.bind(null, brand.id, !brand.active)}>
-                      <button className="mini-action" title={brand.active ? "Désactiver" : "Activer"} aria-label={`${brand.active ? "Désactiver" : "Activer"} ${brand.name}`}>
-                        {brand.active ? <PowerOff size={14} /> : <Power size={14} />}
-                      </button>
-                    </form>
-                    {brand._count.models === 0 && <DeletePacReferenceButton action={deletePacBrand.bind(null, brand.id)} label={brand.name} />}
+                      <span>{brand.active ? "Active" : "Inactive"}</span>
+                    </div>
                   </div>
                 ))}
               </div>
@@ -114,26 +101,15 @@ export default async function PacCatalogPage({
               <div className="pac-reference-heading">
                 <div><strong>Réfrigérants</strong><small>{refrigerants.length} réfrigérant{refrigerants.length === 1 ? "" : "s"} enregistré{refrigerants.length === 1 ? "" : "s"}</small></div>
               </div>
-              <form action={createRefrigerant} className="pac-reference-add refrigerant-add">
-                <label>Réfrigérant<input name="name" required placeholder="Ex. R32" /></label>
-                <label>GWP<input name="gwp" required type="number" min="0" step="0.01" /></label>
-                <button className="button button-primary button-small"><CirclePlus size={15} /> Ajouter</button>
-              </form>
               <div className="pac-reference-list">
                 {refrigerants.map((refrigerant) => (
                   <div className={`pac-reference-row${refrigerant.active ? "" : " inactive"}`} key={refrigerant.id}>
-                    <form action={updateRefrigerant.bind(null, refrigerant.id)} className="pac-reference-edit refrigerant-edit">
-                      <input name="name" defaultValue={refrigerant.name} required aria-label={`Nom du réfrigérant ${refrigerant.name}`} />
-                      <input name="gwp" defaultValue={refrigerant.gwp} required type="number" min="0" step="0.01" aria-label={`GWP de ${refrigerant.name}`} />
+                    <div className="pac-reference-edit refrigerant-edit">
+                      <strong>{refrigerant.name}</strong>
+                      <span>GWP {refrigerant.gwp}</span>
                       <span>{refrigerant._count.models} modèle{refrigerant._count.models === 1 ? "" : "s"}</span>
-                      <button className="mini-action" title="Enregistrer" aria-label={`Enregistrer ${refrigerant.name}`}><Save size={14} /></button>
-                    </form>
-                    <form action={toggleRefrigerant.bind(null, refrigerant.id, !refrigerant.active)}>
-                      <button className="mini-action" title={refrigerant.active ? "Désactiver" : "Activer"} aria-label={`${refrigerant.active ? "Désactiver" : "Activer"} ${refrigerant.name}`}>
-                        {refrigerant.active ? <PowerOff size={14} /> : <Power size={14} />}
-                      </button>
-                    </form>
-                    {refrigerant._count.models === 0 && <DeletePacReferenceButton action={deleteRefrigerant.bind(null, refrigerant.id)} label={refrigerant.name} />}
+                      <span>{refrigerant.active ? "Actif" : "Inactif"}</span>
+                    </div>
                   </div>
                 ))}
               </div>
@@ -146,7 +122,7 @@ export default async function PacCatalogPage({
         <section className="card worksheet-empty">
           <Snowflake size={34} />
           <h2>Aucun modèle PAC</h2>
-          <p>Ajoutez d’abord une marque et un réfrigérant, puis créez votre premier modèle.</p>
+          <p>Les créations se font désormais dans la bibliothèque technique.</p>
         </section>
       ) : (
         <div className="pac-model-grid">

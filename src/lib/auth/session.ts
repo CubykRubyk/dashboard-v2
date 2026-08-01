@@ -1,18 +1,19 @@
 import "server-only";
 
-import { SignJWT, jwtVerify } from "jose";
+import { SignJWT } from "jose";
 import { cookies } from "next/headers";
 import { cache } from "react";
 import { redirect } from "next/navigation";
 import type { UserRole } from "@/generated/prisma/enums";
+import {
+  type SessionTokenUser,
+  verifySessionToken,
+} from "@/lib/auth/session-token";
 
 const COOKIE_NAME = "dashboard_session";
 const SESSION_SECONDS = 60 * 60 * 8;
 
-export interface SessionUser {
-  id: string;
-  email: string;
-  name: string;
+export interface SessionUser extends SessionTokenUser {
   role: UserRole;
 }
 
@@ -48,14 +49,7 @@ export async function deleteSession() {
 export const getSession = cache(async (): Promise<SessionUser | null> => {
   const token = (await cookies()).get(COOKIE_NAME)?.value;
   if (!token) return null;
-  try {
-    const { payload } = await jwtVerify(token, secretKey(), {
-      algorithms: ["HS256"],
-    });
-    return (payload.user as SessionUser | undefined) ?? null;
-  } catch {
-    return null;
-  }
+  return verifySessionToken(token, secretKey());
 });
 
 export async function requireUser() {

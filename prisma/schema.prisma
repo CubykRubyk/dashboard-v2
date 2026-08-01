@@ -70,6 +70,25 @@ enum PacDocumentType {
   OTHER
 }
 
+enum EquipmentType {
+  INDOOR_UNIT
+  OUTDOOR_UNIT
+  MONOBLOC
+  ACCESSORY
+  CONTROLLER
+  OTHER
+}
+
+enum TechnicalDocumentType {
+  INSTALLATION_MANUAL
+  USER_MANUAL
+  DATASHEET
+  WIRING_DIAGRAM
+  ERROR_CODES
+  CERTIFICATE
+  OTHER
+}
+
 model User {
   id           String      @id @default(cuid())
   email        String      @unique
@@ -258,53 +277,56 @@ model PacBrand {
 }
 
 model Refrigerant {
-  id        String     @id @default(cuid())
-  name      String     @unique
+  id        String      @id @default(cuid())
+  name      String      @unique
   gwp       Float
-  active    Boolean    @default(true)
+  active    Boolean     @default(true)
   models    HeatPump[]
-  createdAt DateTime   @default(now())
-  updatedAt DateTime   @updatedAt
+  equipment Equipment[]
+  createdAt DateTime    @default(now())
+  updatedAt DateTime    @updatedAt
 }
 
 model HeatPump {
-  id                       String                    @id @default(cuid())
+  id                       String                           @id @default(cuid())
   name                     String
   brandId                  String
-  brand                    PacBrand                  @relation(fields: [brandId], references: [id], onDelete: Restrict)
-  type                     HeatPumpType              @default(AIR_WATER)
-  configuration            HeatPumpConfiguration     @default(SPLIT)
-  electricalSupply         ElectricalSupply          @default(SINGLE_PHASE)
+  brand                    PacBrand                         @relation(fields: [brandId], references: [id], onDelete: Restrict)
+  type                     HeatPumpType                     @default(AIR_WATER)
+  configuration            HeatPumpConfiguration            @default(SPLIT)
+  electricalSupply         ElectricalSupply                 @default(SINGLE_PHASE)
   powerKw                  Float?
-  outdoorReference         String                    @default("")
-  indoorReference          String                    @default("")
+  outdoorReference         String                           @default("")
+  indoorReference          String                           @default("")
   splitLiaisonType         HeatPumpSplitLiaisonType?
   refrigerantId            String?
-  refrigerant              Refrigerant?              @relation(fields: [refrigerantId], references: [id], onDelete: SetNull)
+  refrigerant              Refrigerant?                     @relation(fields: [refrigerantId], references: [id], onDelete: SetNull)
   factoryChargeKg          Float?
   maxPipeLengthM           Float?
   maxHeightDifferenceM     Float?
   includedPipeLengthM      Float?
   additionalChargeGPerM    Float?
-  liquidPipeDiameter       String                    @default("")
-  gasPipeDiameter          String                    @default("")
-  powerCable               String                    @default("")
-  indoorPowerCable         String                    @default("")
-  outdoorPowerCable        String                    @default("")
-  recommendedProtection    String                    @default("")
-  communicationCable       String                    @default("")
-  hydraulicConnections     String                    @default("")
-  minimumFlow              String                    @default("")
-  minimumWaterVolume       String                    @default("")
-  maximumFlowTemperature   String                    @default("")
-  bufferTankRecommendation String                    @default("")
-  commissioningNotes       String                    @default("")
-  installationNotes        String                    @default("")
-  internalNotes            String                    @default("")
-  active                   Boolean                   @default(true)
+  liquidPipeDiameter       String                           @default("")
+  gasPipeDiameter          String                           @default("")
+  powerCable               String                           @default("")
+  indoorPowerCable         String                           @default("")
+  outdoorPowerCable        String                           @default("")
+  recommendedProtection    String                           @default("")
+  communicationCable       String                           @default("")
+  hydraulicConnections     String                           @default("")
+  minimumFlow              String                           @default("")
+  minimumWaterVolume       String                           @default("")
+  maximumFlowTemperature   String                           @default("")
+  bufferTankRecommendation String                           @default("")
+  commissioningNotes       String                           @default("")
+  installationNotes        String                           @default("")
+  internalNotes            String                           @default("")
+  active                   Boolean                          @default(true)
   documents                PacDocument[]
-  createdAt                DateTime                  @default(now())
-  updatedAt                DateTime                  @updatedAt
+  equipmentMappings        LegacyHeatPumpEquipment[]
+  combinationMapping       LegacyHeatPumpSystemCombination?
+  createdAt                DateTime                         @default(now())
+  updatedAt                DateTime                         @updatedAt
 
   @@unique([brandId, name])
   @@index([brandId, active])
@@ -312,19 +334,257 @@ model HeatPump {
 }
 
 model PacDocument {
-  id           String          @id @default(cuid())
-  heatPumpId   String
-  heatPump     HeatPump        @relation(fields: [heatPumpId], references: [id], onDelete: Cascade)
-  name         String
-  type         PacDocumentType @default(OTHER)
-  originalName String
-  storageName  String          @unique
-  mimeType     String
-  sizeBytes    Int
-  version      String          @default("")
-  documentDate DateTime?
-  primary      Boolean         @default(false)
-  createdAt    DateTime        @default(now())
+  id                String             @id @default(cuid())
+  heatPumpId        String
+  heatPump          HeatPump           @relation(fields: [heatPumpId], references: [id], onDelete: Cascade)
+  name              String
+  type              PacDocumentType    @default(OTHER)
+  originalName      String
+  storageName       String             @unique
+  mimeType          String
+  sizeBytes         Int
+  version           String             @default("")
+  documentDate      DateTime?
+  primary           Boolean            @default(false)
+  technicalDocument TechnicalDocument?
+  createdAt         DateTime           @default(now())
 
   @@index([heatPumpId, type])
+}
+
+model Manufacturer {
+  id                 String              @id @default(cuid())
+  name               String
+  normalizedName     String              @unique
+  active             Boolean             @default(true)
+  productRanges      ProductRange[]
+  equipment          Equipment[]
+  systemCombinations SystemCombination[]
+  createdAt          DateTime            @default(now())
+  updatedAt          DateTime            @updatedAt
+
+  @@index([active, name])
+}
+
+model ProductRange {
+  id                 String              @id @default(cuid())
+  manufacturerId     String
+  manufacturer       Manufacturer        @relation(fields: [manufacturerId], references: [id], onDelete: Restrict)
+  name               String
+  normalizedName     String
+  legacyPacRangeId   String?             @unique
+  active             Boolean             @default(true)
+  equipment          Equipment[]
+  systemCombinations SystemCombination[]
+  createdAt          DateTime            @default(now())
+  updatedAt          DateTime            @updatedAt
+
+  @@unique([manufacturerId, normalizedName])
+  @@index([manufacturerId, active])
+}
+
+model Equipment {
+  // Identification
+  id                    String        @id @default(cuid())
+  manufacturerId        String
+  manufacturer          Manufacturer  @relation(fields: [manufacturerId], references: [id], onDelete: Restrict)
+  productRangeId        String?
+  productRange          ProductRange? @relation(fields: [productRangeId], references: [id], onDelete: SetNull)
+  type                  EquipmentType
+  name                  String
+  manufacturerReference String
+  normalizedReference   String
+  referenceNeedsReview  Boolean       @default(false)
+
+  // Electrical supply and protection
+  electricalSupply      ElectricalSupply?
+  recommendedProtection String            @default("")
+
+  // Cables
+  powerCable         String @default("")
+  communicationCable String @default("")
+
+  // Refrigeration
+  refrigerantId   String?
+  refrigerant     Refrigerant? @relation(fields: [refrigerantId], references: [id], onDelete: Restrict)
+  factoryChargeKg Float?
+
+  // Refrigerant line sizes and limits
+  maxPipeLengthM        Float?
+  maxHeightDifferenceM  Float?
+  includedPipeLengthM   Float?
+  additionalChargeGPerM Float?
+  liquidPipeDiameter    String @default("")
+  gasPipeDiameter       String @default("")
+
+  // Hydraulics
+  hydraulicConnections     String @default("")
+  minimumFlow              String @default("")
+  minimumWaterVolume       String @default("")
+  maximumFlowTemperature   String @default("")
+  bufferTankRecommendation String @default("")
+
+  // Basic performance
+  nominalPowerKw Float?
+
+  // Notes
+  commissioningNotes String @default("")
+  installationNotes  String @default("")
+  internalNotes      String @default("")
+
+  active              Boolean                      @default(true)
+  combinationParts    CombinationComponent[]
+  indoorCombinations  SystemCombination[]          @relation("SystemCombinationIndoorEquipment")
+  outdoorCombinations SystemCombination[]          @relation("SystemCombinationOutdoorEquipment")
+  technicalDocuments  EquipmentTechnicalDocument[]
+  legacyMappings      LegacyHeatPumpEquipment[]
+  createdAt           DateTime                     @default(now())
+  updatedAt           DateTime                     @updatedAt
+
+  @@unique([manufacturerId, normalizedReference])
+  @@index([manufacturerId, type, active])
+  @@index([productRangeId])
+  @@index([refrigerantId])
+}
+
+model SystemCombination {
+  id                 String                               @id @default(cuid())
+  manufacturerId     String
+  manufacturer       Manufacturer                         @relation(fields: [manufacturerId], references: [id], onDelete: Restrict)
+  productRangeId     String?
+  productRange       ProductRange?                        @relation(fields: [productRangeId], references: [id], onDelete: SetNull)
+  name               String
+  normalizedName     String
+  applicationType    HeatPumpType?
+  splitLiaisonType   HeatPumpSplitLiaisonType?
+  electricalSupply   ElectricalSupply?
+  nominalPowerKw     Float?
+  commissioningNotes String                               @default("")
+  installationNotes  String                               @default("")
+  internalNotes      String                               @default("")
+  active             Boolean                              @default(true)
+  indoorEquipmentId  String
+  indoorEquipment    Equipment                            @relation("SystemCombinationIndoorEquipment", fields: [indoorEquipmentId], references: [id], onDelete: Restrict)
+  outdoorEquipmentId String
+  outdoorEquipment   Equipment                            @relation("SystemCombinationOutdoorEquipment", fields: [outdoorEquipmentId], references: [id], onDelete: Restrict)
+  components         CombinationComponent[]
+  technicalDocuments SystemCombinationTechnicalDocument[]
+  legacyMappings     LegacyHeatPumpSystemCombination[]
+  createdAt          DateTime                             @default(now())
+  updatedAt          DateTime                             @updatedAt
+
+  @@unique([manufacturerId, normalizedName])
+  @@unique([indoorEquipmentId, outdoorEquipmentId])
+  @@index([manufacturerId, active])
+  @@index([productRangeId])
+  @@index([indoorEquipmentId])
+  @@index([outdoorEquipmentId])
+}
+
+model CombinationComponent {
+  id                  String            @id @default(cuid())
+  systemCombinationId String
+  systemCombination   SystemCombination @relation(fields: [systemCombinationId], references: [id], onDelete: Cascade)
+  equipmentId         String
+  equipment           Equipment         @relation(fields: [equipmentId], references: [id], onDelete: Restrict)
+  role                EquipmentType
+  quantity            Int               @default(1)
+  position            Int               @default(0)
+  required            Boolean           @default(true)
+  notes               String            @default("")
+  createdAt           DateTime          @default(now())
+
+  @@unique([systemCombinationId, equipmentId])
+  @@unique([systemCombinationId, role])
+  @@index([equipmentId])
+}
+
+model CombinationComponentMigrationArchive {
+  id                  String        @id
+  migrationName       String
+  originalComponentId String
+  systemCombinationId String
+  equipmentId         String
+  role                EquipmentType
+  quantity            Int
+  position            Int
+  required            Boolean
+  notes               String
+  sourceCreatedAt     DateTime
+  reason              String
+  provenance          Json
+  snapshot            Json
+  archivedAt          DateTime      @default(now())
+
+  @@unique([migrationName, originalComponentId], map: "CombinationComponentMigrationArchive_migrationName_originalComp")
+  @@index([systemCombinationId])
+  @@index([equipmentId])
+  @@index([archivedAt])
+}
+
+model TechnicalDocument {
+  id                  String                               @id @default(cuid())
+  legacyPacDocumentId String?                              @unique
+  legacyPacDocument   PacDocument?                         @relation(fields: [legacyPacDocumentId], references: [id], onDelete: SetNull)
+  title               String
+  type                TechnicalDocumentType                @default(OTHER)
+  originalFileName    String
+  storageName         String                               @unique
+  checksumSha256      String?                              @unique
+  mimeType            String
+  sizeBytes           Int
+  version             String                               @default("")
+  documentDate        DateTime?
+  isPrimary           Boolean                              @default(false)
+  active              Boolean                              @default(true)
+  equipment           EquipmentTechnicalDocument[]
+  systemCombinations  SystemCombinationTechnicalDocument[]
+  createdAt           DateTime                             @default(now())
+  updatedAt           DateTime                             @updatedAt
+
+  @@index([type, active])
+}
+
+model EquipmentTechnicalDocument {
+  equipmentId         String
+  equipment           Equipment         @relation(fields: [equipmentId], references: [id], onDelete: Cascade)
+  technicalDocumentId String
+  technicalDocument   TechnicalDocument @relation(fields: [technicalDocumentId], references: [id], onDelete: Cascade)
+  createdAt           DateTime          @default(now())
+
+  @@id([equipmentId, technicalDocumentId])
+  @@index([technicalDocumentId])
+}
+
+model SystemCombinationTechnicalDocument {
+  systemCombinationId String
+  systemCombination   SystemCombination @relation(fields: [systemCombinationId], references: [id], onDelete: Cascade)
+  technicalDocumentId String
+  technicalDocument   TechnicalDocument @relation(fields: [technicalDocumentId], references: [id], onDelete: Cascade)
+  createdAt           DateTime          @default(now())
+
+  @@id([systemCombinationId, technicalDocumentId])
+  @@index([technicalDocumentId])
+}
+
+model LegacyHeatPumpEquipment {
+  heatPumpId  String
+  heatPump    HeatPump      @relation(fields: [heatPumpId], references: [id], onDelete: Cascade)
+  equipmentId String
+  equipment   Equipment     @relation(fields: [equipmentId], references: [id], onDelete: Cascade)
+  role        EquipmentType
+  createdAt   DateTime      @default(now())
+
+  @@id([heatPumpId, equipmentId, role])
+  @@index([equipmentId])
+}
+
+model LegacyHeatPumpSystemCombination {
+  heatPumpId          String            @id
+  heatPump            HeatPump          @relation(fields: [heatPumpId], references: [id], onDelete: Cascade)
+  systemCombinationId String
+  systemCombination   SystemCombination @relation(fields: [systemCombinationId], references: [id], onDelete: Cascade)
+  createdAt           DateTime          @default(now())
+
+  @@index([systemCombinationId])
 }
