@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { CirclePlus, Droplets, Factory, Power, PowerOff, Save, Search, Snowflake } from "lucide-react";
+import { Boxes, CirclePlus, Droplets, Factory, Power, PowerOff, Save, Search, Snowflake } from "lucide-react";
 import { DeletePacReferenceButton } from "@/components/pac/DeletePacReferenceButton";
 import { DismissibleDetails } from "@/components/ui/DismissibleDetails";
 import { prisma } from "@/lib/prisma";
@@ -68,9 +68,14 @@ export default async function PacCatalogPage({
           <h1>Catalogue PAC</h1>
           <p>Modèles, données d’installation, réfrigérants et documentation technique.</p>
         </div>
-        <Link href="/pac/nouveau" className="button button-primary">
-          <CirclePlus size={17} /> Ajouter un modèle
-        </Link>
+        <div className="page-heading-actions">
+          <Link href="/pac/technical" className="button button-ghost">
+            <Boxes size={17} /> Bibliothèque technique
+          </Link>
+          <Link href="/pac/nouveau" className="button button-primary">
+            <CirclePlus size={17} /> Ajouter un modèle
+          </Link>
+        </div>
       </div>
 
       <section className="card pac-toolbar">

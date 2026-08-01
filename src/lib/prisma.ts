@@ -1,7 +1,7 @@
 import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "@/generated/prisma/client";
 
-const PRISMA_CLIENT_SIGNATURE = "20260801153000_pac_split_variants";
+const PRISMA_CLIENT_SIGNATURE = "20260801200000_hvac_technical_library";
 
 const globalForPrisma = globalThis as unknown as {
   prisma?: PrismaClient;
