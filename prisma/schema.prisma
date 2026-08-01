@@ -253,24 +253,8 @@ model PacBrand {
   name      String     @unique
   active    Boolean    @default(true)
   models    HeatPump[]
-  ranges    PacRange[]
   createdAt DateTime   @default(now())
   updatedAt DateTime   @updatedAt
-}
-
-model PacRange {
-  id        String        @id @default(cuid())
-  brandId   String
-  brand     PacBrand      @relation(fields: [brandId], references: [id], onDelete: Restrict)
-  name      String
-  active    Boolean       @default(true)
-  models    HeatPump[]
-  documents PacDocument[]
-  createdAt DateTime      @default(now())
-  updatedAt DateTime      @updatedAt
-
-  @@unique([brandId, name])
-  @@index([brandId, active])
 }
 
 model Refrigerant {
@@ -288,8 +272,6 @@ model HeatPump {
   name                     String
   brandId                  String
   brand                    PacBrand                  @relation(fields: [brandId], references: [id], onDelete: Restrict)
-  rangeId                  String?
-  range                    PacRange?                 @relation(fields: [rangeId], references: [id], onDelete: SetNull)
   type                     HeatPumpType              @default(AIR_WATER)
   configuration            HeatPumpConfiguration     @default(SPLIT)
   electricalSupply         ElectricalSupply          @default(SINGLE_PHASE)
@@ -320,43 +302,29 @@ model HeatPump {
   installationNotes        String                    @default("")
   internalNotes            String                    @default("")
   active                   Boolean                   @default(true)
-  documentLinks            PacDocumentHeatPump[]
+  documents                PacDocument[]
   createdAt                DateTime                  @default(now())
   updatedAt                DateTime                  @updatedAt
 
   @@unique([brandId, name])
   @@index([brandId, active])
-  @@index([rangeId])
   @@index([refrigerantId])
 }
 
 model PacDocument {
-  id           String                @id @default(cuid())
-  rangeId      String?
-  range        PacRange?             @relation(fields: [rangeId], references: [id], onDelete: SetNull)
-  modelLinks   PacDocumentHeatPump[]
+  id           String          @id @default(cuid())
+  heatPumpId   String
+  heatPump     HeatPump        @relation(fields: [heatPumpId], references: [id], onDelete: Cascade)
   name         String
-  type         PacDocumentType       @default(OTHER)
+  type         PacDocumentType @default(OTHER)
   originalName String
-  storageName  String                @unique
+  storageName  String          @unique
   mimeType     String
   sizeBytes    Int
-  language     String                @default("FR")
-  version      String                @default("")
+  version      String          @default("")
   documentDate DateTime?
-  primary      Boolean               @default(false)
-  createdAt    DateTime              @default(now())
+  primary      Boolean         @default(false)
+  createdAt    DateTime        @default(now())
 
-  @@index([rangeId, type])
-}
-
-model PacDocumentHeatPump {
-  documentId String
-  document   PacDocument @relation(fields: [documentId], references: [id], onDelete: Cascade)
-  heatPumpId String
-  heatPump   HeatPump    @relation(fields: [heatPumpId], references: [id], onDelete: Cascade)
-  createdAt  DateTime    @default(now())
-
-  @@id([documentId, heatPumpId])
-  @@index([heatPumpId])
+  @@index([heatPumpId, type])
 }

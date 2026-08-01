@@ -1,20 +1,16 @@
 import Link from "next/link";
-import { CirclePlus, Droplets, Factory, Layers, Power, PowerOff, Save, Search, Snowflake } from "lucide-react";
+import { CirclePlus, Droplets, Factory, Power, PowerOff, Save, Search, Snowflake } from "lucide-react";
 import { DeletePacReferenceButton } from "@/components/pac/DeletePacReferenceButton";
 import { DismissibleDetails } from "@/components/ui/DismissibleDetails";
 import { prisma } from "@/lib/prisma";
 import {
   createPacBrand,
-  createPacRange,
   createRefrigerant,
   deletePacBrand,
-  deletePacRange,
   deleteRefrigerant,
   togglePacBrand,
-  togglePacRange,
   toggleRefrigerant,
   updatePacBrand,
-  updatePacRange,
   updateRefrigerant,
 } from "./actions";
 
@@ -43,15 +39,8 @@ export default async function PacCatalogPage({
 }) {
   const filters = await searchParams;
   const q = filters.q?.trim() || "";
-  const [brands, ranges, refrigerants, models] = await Promise.all([
+  const [brands, refrigerants, models] = await Promise.all([
     prisma.pacBrand.findMany({ orderBy: { name: "asc" }, include: { _count: { select: { models: true } } } }),
-    prisma.pacRange.findMany({
-      orderBy: [{ brand: { name: "asc" } }, { name: "asc" }],
-      include: {
-        brand: true,
-        _count: { select: { models: true, documents: true } },
-      },
-    }),
     prisma.refrigerant.findMany({ orderBy: { name: "asc" }, include: { _count: { select: { models: true } } } }),
     prisma.heatPump.findMany({
       where: {
@@ -66,12 +55,7 @@ export default async function PacCatalogPage({
           ],
         } : {}),
       },
-      include: {
-        brand: true,
-        refrigerant: true,
-        range: { include: { documents: { select: { id: true } } } },
-        documentLinks: { select: { documentId: true } },
-      },
+      include: { brand: true, refrigerant: true, _count: { select: { documents: true } } },
       orderBy: [{ brand: { name: "asc" } }, { name: "asc" }],
     }),
   ]);
@@ -125,46 +109,6 @@ export default async function PacCatalogPage({
               </div>
             </div>
           </DismissibleDetails>
-          <DismissibleDetails className="pac-reference-details" summaryClassName="button button-ghost button-small" summary={<><Layers size={15} /> Gammes ({ranges.length})</>}>
-            <div className="pac-reference-panel">
-              <div className="pac-reference-heading">
-                <div><strong>Gammes PAC</strong><small>Une gamme regroupe les modèles qui partagent leurs documents.</small></div>
-              </div>
-              <form action={createPacRange} className="pac-reference-add range-add">
-                <label>
-                  Marque
-                  <select name="brandId" required defaultValue="">
-                    <option value="" disabled>Sélectionner</option>
-                    {brands.filter((brand) => brand.active).map((brand) => (
-                      <option value={brand.id} key={brand.id}>{brand.name}</option>
-                    ))}
-                  </select>
-                </label>
-                <label>Nouvelle gamme<input name="name" required placeholder="Ex. Nimbus Plus S Net R32" /></label>
-                <button className="button button-primary button-small"><CirclePlus size={15} /> Ajouter</button>
-              </form>
-              <div className="pac-reference-list">
-                {ranges.map((range) => (
-                  <div className={`pac-reference-row${range.active ? "" : " inactive"}`} key={range.id}>
-                    <form action={updatePacRange.bind(null, range.id)} className="pac-reference-edit range-edit">
-                      <span className="pac-range-brand">{range.brand.name}</span>
-                      <input name="name" defaultValue={range.name} required aria-label={`Nom de la gamme ${range.name}`} />
-                      <span>{range._count.models} modèle{range._count.models === 1 ? "" : "s"} · {range._count.documents} doc.</span>
-                      <button className="mini-action" title="Enregistrer" aria-label={`Enregistrer ${range.name}`}><Save size={14} /></button>
-                    </form>
-                    <form action={togglePacRange.bind(null, range.id, !range.active)}>
-                      <button className="mini-action" title={range.active ? "Désactiver" : "Activer"} aria-label={`${range.active ? "Désactiver" : "Activer"} ${range.name}`}>
-                        {range.active ? <PowerOff size={14} /> : <Power size={14} />}
-                      </button>
-                    </form>
-                    {range._count.models === 0 && range._count.documents === 0 && (
-                      <DeletePacReferenceButton action={deletePacRange.bind(null, range.id)} label={range.name} />
-                    )}
-                  </div>
-                ))}
-              </div>
-            </div>
-          </DismissibleDetails>
           <DismissibleDetails className="pac-reference-details" summaryClassName="button button-ghost button-small" summary={<><Droplets size={15} /> Réfrigérants ({refrigerants.length})</>}>
             <div className="pac-reference-panel refrigerant-panel">
               <div className="pac-reference-heading">
@@ -210,14 +154,10 @@ export default async function PacCatalogPage({
             const tco2 = model.factoryChargeKg != null && model.refrigerant
               ? model.factoryChargeKg * model.refrigerant.gwp / 1000
               : null;
-            const documentCount = new Set([
-              ...model.documentLinks.map((link) => link.documentId),
-              ...(model.range?.documents.map((document) => document.id) || []),
-            ]).size;
             return (
               <Link href={`/pac/${model.id}`} className={`card pac-model-card${model.active ? "" : " inactive"}`} key={model.id}>
                 <div className="pac-model-top">
-                  <span className="pac-brand">{model.brand.name}{model.range ? ` · ${model.range.name}` : ""}</span>
+                  <span className="pac-brand">{model.brand.name}</span>
                   <span className={`status-dot ${model.active ? "active" : ""}`}>{model.active ? "Actif" : "Inactif"}</span>
                 </div>
                 <h2>{model.name}</h2>
@@ -233,7 +173,7 @@ export default async function PacCatalogPage({
                 <div className="pac-model-meta">
                   <span><strong>{model.refrigerant?.name || "—"}</strong> Réfrigérant</span>
                   <span><strong>{tco2 != null ? `${tco2.toFixed(3)} t` : "—"}</strong> CO₂e</span>
-                  <span><strong>{documentCount}</strong> Documents</span>
+                  <span><strong>{model._count.documents}</strong> Documents</span>
                 </div>
                 {(model.outdoorReference || model.indoorReference) && (
                   <small>{[model.outdoorReference, model.indoorReference].filter(Boolean).join(" · ")}</small>
