@@ -18,7 +18,58 @@ const issuerSchema = z.object({
   email: z.string().trim().email("L’email n’est pas valide.").or(z.literal("")),
   defaultResponsible: z.string().trim().max(160),
   refrigerantAttestationNumber: z.string().trim().max(160),
+  leakDetectorId: z.string().trim().max(160),
+  leakDetectorInspectionDate: z.string().trim().regex(/^$|^\d{4}-\d{2}-\d{2}$/),
 });
+
+const MAX_ISSUER_ASSET_BYTES = 2 * 1024 * 1024;
+
+function parseIssuerData(formData: FormData) {
+  const parsed = issuerSchema.parse(Object.fromEntries(formData));
+  return {
+    name: parsed.name,
+    address: parsed.address,
+    phone: parsed.phone,
+    email: parsed.email,
+    defaultResponsible: parsed.defaultResponsible,
+    refrigerantAttestationNumber: parsed.refrigerantAttestationNumber,
+    leakDetectorId: parsed.leakDetectorId,
+    leakDetectorInspectionDate: parsed.leakDetectorInspectionDate
+      ? new Date(`${parsed.leakDetectorInspectionDate}T00:00:00.000Z`)
+      : null,
+  };
+}
+
+async function readIssuerAsset(formData: FormData, field: string) {
+  const value = formData.get(field);
+  if (!(value instanceof File) || value.size === 0) return undefined;
+  if (value.size > MAX_ISSUER_ASSET_BYTES) {
+    throw new Error("Chaque image doit avoir une taille maximale de 2 Mo.");
+  }
+  if (value.type !== "image/png" && value.type !== "image/jpeg") {
+    throw new Error("Les images doivent être au format PNG ou JPEG.");
+  }
+  const bytes = Buffer.from(await value.arrayBuffer());
+  const isPng = bytes.subarray(0, 8).equals(Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]));
+  const isJpeg = bytes.subarray(0, 3).equals(Buffer.from([255, 216, 255]));
+  if ((value.type === "image/png" && !isPng) || (value.type === "image/jpeg" && !isJpeg)) {
+    throw new Error("La signature du fichier image est invalide.");
+  }
+  return `data:${value.type};base64,${bytes.toString("base64")}`;
+}
+
+async function issuerAssets(formData: FormData) {
+  const [logoData, stampData, signatureData] = await Promise.all([
+    readIssuerAsset(formData, "logo"),
+    readIssuerAsset(formData, "stamp"),
+    readIssuerAsset(formData, "signature"),
+  ]);
+  return {
+    ...(logoData !== undefined ? { logoData } : {}),
+    ...(stampData !== undefined ? { stampData } : {}),
+    ...(signatureData !== undefined ? { signatureData } : {}),
+  };
+}
 
 async function requireAdmin() {
   const user = await getSession();
@@ -94,7 +145,7 @@ export async function deleteTag(id: string) {
 
 export async function createDocumentIssuer(formData: FormData) {
   const user = await requireTechnicalCatalogAdmin();
-  const data = issuerSchema.parse(Object.fromEntries(formData));
+  const data = { ...parseIssuerData(formData), ...await issuerAssets(formData) };
   const issuer = await prisma.documentIssuer.create({ data });
   await prisma.auditLog.create({
     data: {
@@ -113,7 +164,7 @@ export async function updateDocumentIssuer(
   formData: FormData,
 ) {
   const user = await requireTechnicalCatalogAdmin();
-  const data = issuerSchema.parse(Object.fromEntries(formData));
+  const data = { ...parseIssuerData(formData), ...await issuerAssets(formData) };
   await prisma.$transaction([
     prisma.documentIssuer.update({ where: { id }, data }),
     prisma.auditLog.create({

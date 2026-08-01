@@ -1253,12 +1253,18 @@ kbd {
 .issuer-form button { grid-column: 1 / -1; }
 .issuer-form input,
 .issuer-form textarea { width: 100%; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); padding: 9px 10px; color: var(--heading); }
-.issuer-settings-list { display: grid; gap: 12px; }
+.issuer-settings-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
 .issuer-settings-card { border: 1px solid var(--border); border-radius: 10px; padding: 15px 17px; }
 .issuer-settings-card.inactive { opacity: .62; background: var(--background); }
 .issuer-settings-heading { display: flex; align-items: start; justify-content: space-between; gap: 14px; }
-.issuer-settings-heading > div:first-child { display: grid; gap: 4px; }
-.issuer-settings-heading > div:first-child span { color: var(--muted); font-size: 11px; }
+.issuer-identity { display: flex; align-items: center; gap: 10px; }
+.issuer-identity > img { width: 46px; height: 46px; object-fit: contain; border: 1px solid var(--border); border-radius: 9px; background: #fff; padding: 5px; }
+.issuer-identity > div { display: grid; gap: 4px; }
+.issuer-identity > div span { color: var(--muted); font-size: 11px; }
+.issuer-assets { display: flex; gap: 10px; margin-top: 15px; }
+.issuer-assets > div { display: grid; width: 100px; height: 66px; place-items: center; border: 1px dashed var(--border); border-radius: 8px; overflow: hidden; color: var(--muted); font-size: 9px; text-align: center; }
+.issuer-assets img { max-width: 88px; max-height: 45px; object-fit: contain; }
+.issuer-assets small { align-self: end; font-size: 9px; }
 .issuer-settings-details { display: flex; flex-wrap: wrap; gap: 8px 20px; margin-top: 12px; color: var(--muted); font-size: 12px; }
 .issuer-edit-form { position: absolute; z-index: 15; right: 0; width: min(520px, calc(100vw - 52px)); border: 1px solid var(--border); border-radius: 10px; background: var(--surface); padding: 15px; box-shadow: 0 14px 35px rgb(12 36 60 / 16%); }
 .pac-model-form { display: grid; gap: 18px; }
@@ -2352,6 +2358,7 @@ kbd {
   }
   .technical-equipment-filters { grid-template-columns: 1fr; }
   .pac-combination-grid { grid-template-columns: 1fr; }
+  .issuer-settings-list { grid-template-columns: 1fr; }
   .technical-combination-filters { grid-template-columns: 1fr; }
   .technical-document-filters { grid-template-columns: 1fr; }
   .technical-filter-search { grid-column: auto; }

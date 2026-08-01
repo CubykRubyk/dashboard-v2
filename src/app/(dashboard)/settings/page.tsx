@@ -1,4 +1,5 @@
 import Link from "next/link";
+import Image from "next/image";
 import { Building2, CirclePlus, Link2, Pencil, Power, PowerOff, Tags } from "lucide-react";
 import { DismissibleDetails } from "@/components/ui/DismissibleDetails";
 import { DeleteTagButton } from "@/components/settings/DeleteTagButton";
@@ -16,6 +17,10 @@ import {
 } from "./actions";
 
 export const dynamic = "force-dynamic";
+
+function dateInputValue(value: Date | null) {
+  return value ? value.toISOString().slice(0, 10) : "";
+}
 
 export default async function SettingsPage({
   searchParams,
@@ -179,6 +184,11 @@ export default async function SettingsPage({
                   <label>Email<input name="email" type="email" /></label>
                   <label>Responsable par défaut<input name="defaultResponsible" /></label>
                   <label>N° attestation fluides frigorigènes<input name="refrigerantAttestationNumber" /></label>
+                  <label>ID détecteur de fuite<input name="leakDetectorId" /></label>
+                  <label>Date de contrôle<input name="leakDetectorInspectionDate" type="date" /></label>
+                  <label>Logo<input name="logo" type="file" accept="image/png,image/jpeg" /></label>
+                  <label>Tampon<input name="stamp" type="file" accept="image/png,image/jpeg" /></label>
+                  <label>Signature<input name="signature" type="file" accept="image/png,image/jpeg" /></label>
                   <button className="button button-primary">Enregistrer</button>
                 </form>
               </DismissibleDetails>
@@ -195,7 +205,10 @@ export default async function SettingsPage({
               {issuers.map((issuer) => (
                 <div className={`issuer-settings-card${issuer.active ? "" : " inactive"}`} key={issuer.id}>
                   <div className="issuer-settings-heading">
-                    <div><strong>{issuer.name}</strong><span>{issuer.active ? "Active" : "Inactive"}</span></div>
+                    <div className="issuer-identity">
+                      {issuer.logoData ? <Image src={issuer.logoData} alt="" width={46} height={46} unoptimized /> : <Building2 size={22} />}
+                      <div><strong>{issuer.name}</strong><span>{issuer.active ? "Active" : "Inactive"}</span></div>
+                    </div>
                     {user?.role === "ADMIN" && (
                       <div className="tag-settings-actions">
                         <DismissibleDetails summaryClassName="mini-action" summary={<><Pencil size={14} /> Modifier</>}>
@@ -206,6 +219,11 @@ export default async function SettingsPage({
                             <label>Email<input name="email" type="email" defaultValue={issuer.email} /></label>
                             <label>Responsable par défaut<input name="defaultResponsible" defaultValue={issuer.defaultResponsible} /></label>
                             <label>N° attestation fluides frigorigènes<input name="refrigerantAttestationNumber" defaultValue={issuer.refrigerantAttestationNumber} /></label>
+                            <label>ID détecteur de fuite<input name="leakDetectorId" defaultValue={issuer.leakDetectorId} /></label>
+                            <label>Date de contrôle<input name="leakDetectorInspectionDate" type="date" defaultValue={dateInputValue(issuer.leakDetectorInspectionDate)} /></label>
+                            <label>Logo<input name="logo" type="file" accept="image/png,image/jpeg" /></label>
+                            <label>Tampon<input name="stamp" type="file" accept="image/png,image/jpeg" /></label>
+                            <label>Signature<input name="signature" type="file" accept="image/png,image/jpeg" /></label>
                             <button className="button button-primary button-small">Enregistrer</button>
                           </form>
                         </DismissibleDetails>
@@ -217,10 +235,16 @@ export default async function SettingsPage({
                       </div>
                     )}
                   </div>
+                  <div className="issuer-assets">
+                    <div>{issuer.stampData ? <Image src={issuer.stampData} alt="Tampon" width={88} height={45} unoptimized /> : <span>Tampon non chargé</span>}<small>Tampon</small></div>
+                    <div>{issuer.signatureData ? <Image src={issuer.signatureData} alt="Signature" width={88} height={45} unoptimized /> : <span>Signature non chargée</span>}<small>Signature</small></div>
+                  </div>
                   <div className="issuer-settings-details">
                     <span>{issuer.address || "Adresse non renseignée"}</span>
                     <span>{issuer.defaultResponsible || "Responsable non renseigné"}</span>
                     <span>{issuer.refrigerantAttestationNumber || "N° attestation non renseigné"}</span>
+                    <span>{issuer.leakDetectorId || "Détecteur non renseigné"}</span>
+                    <span>{issuer.leakDetectorInspectionDate ? `Contrôle ${issuer.leakDetectorInspectionDate.toLocaleDateString("fr-FR")}` : "Date de contrôle non renseignée"}</span>
                   </div>
                 </div>
               ))}
