@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { AlertTriangle, ArrowUpRight, Snowflake } from "lucide-react";
+import { AlertTriangle, ArrowUpRight, Snowflake, Zap } from "lucide-react";
 import type {
   CombinationEquipmentRow,
   CombinationRow,
@@ -65,18 +65,17 @@ export function CombinationCards({
             className={`card pac-combination-card${combination.active ? "" : " inactive"}`}
             key={combination.id}
           >
-            <div className="pac-model-top">
-              <span className="pac-brand">{combination.manufacturer.name}</span>
+            <div className="pac-card-topline">
+              <span className="pac-card-brand-mark"><Snowflake size={18} /></span>
+              <div className="pac-card-context"><span className="pac-brand">{combination.manufacturer.name}</span><small>{combination.productRange?.name || "Gamme non renseignée"}</small></div>
               <span className={`status-dot ${combination.active ? "active" : ""}`}>
                 {combination.active ? "Active" : "Inactive"}
               </span>
             </div>
-            <h2>{combination.name}</h2>
-            <p className="pac-combination-range">
-              {combination.productRange?.name || "Sans gamme"}
-            </p>
-            <div className="pac-combination-units">
+            <div className="pac-card-title"><h2>{combination.name}</h2><ArrowUpRight size={18} aria-hidden="true" /></div>
+            <div className="pac-combination-units pac-card-pair">
               <UnitValue equipment={outdoor} label="Unité extérieure" />
+              <span className="pac-card-link"><Zap size={13} /></span>
               <UnitValue equipment={indoor} label="Unité intérieure" />
             </div>
             <div className="pac-combination-footer">
@@ -87,7 +86,7 @@ export function CombinationCards({
               ) : (
                 <small>Configuration UI + UE</small>
               )}
-              <ArrowUpRight size={16} aria-hidden="true" />
+              <small className="pac-card-action">Voir la combinaison</small>
             </div>
           </Link>
         );
