@@ -6,7 +6,6 @@ import { HeatPumpConfiguration, type HeatPumpSplitLiaisonType } from "@/generate
 
 type Option = { id: string; name: string };
 type RefrigerantOption = Option & { gwp: number };
-type RangeOption = Option & { brandId: string };
 
 const splitLiaisonLabels: Record<HeatPumpSplitLiaisonType, string> = {
   FRIGORIFIC: "Split avec liaison frigorifique",
@@ -16,54 +15,29 @@ const splitLiaisonLabels: Record<HeatPumpSplitLiaisonType, string> = {
 export function PacModelForm({
   action,
   brands,
-  ranges,
   refrigerants,
   model,
   submitLabel,
 }: {
   action: (formData: FormData) => void | Promise<void>;
   brands: Option[];
-  ranges: RangeOption[];
   refrigerants: RefrigerantOption[];
   model?: HeatPump;
   submitLabel: string;
 }) {
   const [configuration, setConfiguration] = useState(model?.configuration || HeatPumpConfiguration.SPLIT);
   const [splitLiaisonType, setSplitLiaisonType] = useState<HeatPumpSplitLiaisonType>(model?.splitLiaisonType || "FRIGORIFIC");
-  const [brandId, setBrandId] = useState(model?.brandId || brands[0]?.id || "");
-  const [rangeId, setRangeId] = useState(model?.rangeId || "");
 
   const isSplit = configuration === HeatPumpConfiguration.SPLIT;
   const usesFrigorificLiaison = isSplit && splitLiaisonType === "FRIGORIFIC";
   const indoorPowerValue = model?.indoorPowerCable || model?.powerCable || "";
-  const availableRanges = ranges.filter((range) => range.brandId === brandId);
 
   return (
     <form action={action} className="pac-model-form">
       <section className="card pac-form-section">
         <div className="pac-form-heading"><p className="eyebrow">Identification</p><h2>Modèle et références</h2></div>
         <div className="pac-form-grid">
-          <label>
-            Marque
-            <select
-              name="brandId"
-              required
-              value={brandId}
-              onChange={(event) => {
-                setBrandId(event.currentTarget.value);
-                setRangeId("");
-              }}
-            >
-              {brands.map((brand) => <option value={brand.id} key={brand.id}>{brand.name}</option>)}
-            </select>
-          </label>
-          <label>
-            Gamme
-            <select name="rangeId" value={rangeId} onChange={(event) => setRangeId(event.currentTarget.value)}>
-              <option value="">Sans gamme</option>
-              {availableRanges.map((range) => <option value={range.id} key={range.id}>{range.name}</option>)}
-            </select>
-          </label>
+          <label>Marque<select name="brandId" required defaultValue={model?.brandId}>{brands.map((brand) => <option value={brand.id} key={brand.id}>{brand.name}</option>)}</select></label>
           <label>Nom du modèle<input name="name" required defaultValue={model?.name} placeholder="Ex. Altherma 3 R F" /></label>
           <label>Type<select name="type" defaultValue={model?.type || "AIR_WATER"}><option value="AIR_WATER">Air / eau</option><option value="AIR_AIR">Air / air</option><option value="GROUND_WATER">Sol / eau</option></select></label>
           <label>
