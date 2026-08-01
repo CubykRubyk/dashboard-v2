@@ -6,7 +6,6 @@ import {
   Boxes,
   BarChart3,
   Building2,
-  FileOutput,
   FileText,
   Gauge,
   Settings,
@@ -23,7 +22,6 @@ const navigation = [
     items: [
       { href: "/fiches", label: "Fiches chantier", icon: FileText },
       { href: "/reports", label: "Statistiques", icon: BarChart3 },
-      { href: "/documents", label: "Documents", icon: FileOutput },
       { href: "/societati", label: "Sociétés", icon: Building2 },
     ],
   },
