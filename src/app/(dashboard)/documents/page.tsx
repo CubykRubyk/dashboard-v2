@@ -1,0 +1,7 @@
+import Link from "next/link";
+import { prisma } from "@/lib/prisma";
+
+export default async function GeneratedDocumentsPage() {
+  const documents = await prisma.generatedDocument.findMany({ include: { template: true, issuer: true }, orderBy: { createdAt: "desc" }, take: 25 });
+  return <main className="page-shell"><div className="page-heading"><div><p className="eyebrow">Documents générés</p><h1>Documents</h1><p className="page-subtitle">Générez des PDF indépendamment des fiches de chantier.</p></div><div className="button-row"><Link className="button secondary" href="/documents/templates">Templates PDF</Link><Link className="button" href="/documents/generate">Générer un document</Link></div></div><section className="card"><div className="section-heading"><h2>Historique</h2><span className="badge">{documents.length}</span></div>{documents.length === 0 ? <p className="empty-state">Aucun document généré.</p> : <div className="stack-list">{documents.map((doc) => <article className="list-row" key={doc.id}><div><strong>{doc.title}</strong><p className="muted">{doc.originalFileName} · Dolibarr {doc.dolibarrEventId} · {doc.issuer?.name || "Société non définie"}</p></div><div className="button-row"><a className="button secondary" href={`/api/documents/generated/${doc.id}`} target="_blank" rel="noreferrer">Voir</a><a className="button secondary" href={`/api/documents/generated/${doc.id}?download=1`}>Télécharger</a></div></article>)}</div>}</section></main>;
+}

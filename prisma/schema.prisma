@@ -212,23 +212,70 @@ model AppSettings {
 }
 
 model DocumentIssuer {
-  id                           String    @id @default(cuid())
-  name                         String    @unique
-  address                      String    @default("")
-  phone                        String    @default("")
-  email                        String    @default("")
-  defaultResponsible           String    @default("")
-  refrigerantAttestationNumber String    @default("")
-  leakDetectorId               String    @default("")
+  id                           String              @id @default(cuid())
+  name                         String              @unique
+  address                      String              @default("")
+  phone                        String              @default("")
+  email                        String              @default("")
+  defaultResponsible           String              @default("")
+  refrigerantAttestationNumber String              @default("")
+  leakDetectorId               String              @default("")
   leakDetectorInspectionDate   DateTime?
-  logoData                     String    @default("")
-  stampData                    String    @default("")
-  signatureData                String    @default("")
-  active                       Boolean   @default(true)
-  createdAt                    DateTime  @default(now())
-  updatedAt                    DateTime  @updatedAt
+  logoData                     String              @default("")
+  stampData                    String              @default("")
+  signatureData                String              @default("")
+  active                       Boolean             @default(true)
+  generatedDocuments           GeneratedDocument[]
+  createdAt                    DateTime            @default(now())
+  updatedAt                    DateTime            @updatedAt
 
   @@index([active, name])
+}
+
+model DocumentTemplate {
+  id                 String              @id @default(cuid())
+  name               String
+  originalFileName   String
+  storageName        String              @unique
+  mimeType           String              @default("application/pdf")
+  sizeBytes          Int
+  checksumSha256     String              @unique
+  fields             Json
+  active             Boolean             @default(true)
+  version            Int                 @default(1)
+  generatedDocuments GeneratedDocument[]
+  createdAt          DateTime            @default(now())
+  updatedAt          DateTime            @updatedAt
+
+  @@index([active, name])
+}
+
+model GeneratedDocument {
+  id                  String             @id @default(cuid())
+  templateId          String
+  template            DocumentTemplate   @relation(fields: [templateId], references: [id], onDelete: Restrict)
+  issuerId            String?
+  issuer              DocumentIssuer?    @relation(fields: [issuerId], references: [id], onDelete: SetNull)
+  systemCombinationId String?
+  systemCombination   SystemCombination? @relation(fields: [systemCombinationId], references: [id], onDelete: SetNull)
+  title               String
+  originalFileName    String
+  storageName         String             @unique
+  mimeType            String             @default("application/pdf")
+  sizeBytes           Int
+  checksumSha256      String             @unique
+  dolibarrEventId     String
+  dateDocument        DateTime?
+  clientName          String             @default("")
+  siteAddress         String             @default("")
+  responsible         String             @default("")
+  manualFields        Json
+  sourceSnapshot      Json
+  createdAt           DateTime           @default(now())
+
+  @@index([dolibarrEventId])
+  @@index([issuerId, createdAt])
+  @@index([systemCombinationId])
 }
 
 model WorkSheetItem {
@@ -490,6 +537,7 @@ model SystemCombination {
   components         CombinationComponent[]
   technicalDocuments SystemCombinationTechnicalDocument[]
   legacyMappings     LegacyHeatPumpSystemCombination[]
+  generatedDocuments GeneratedDocument[]
   createdAt          DateTime                             @default(now())
   updatedAt          DateTime                             @updatedAt
 
