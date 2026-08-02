@@ -1356,6 +1356,9 @@ kbd {
 .gx-elevated-meta span { display: block; color: var(--muted); font-size: 10px; }
 .gx-elevated-meta strong { display: block; overflow: hidden; margin-top: 3px; color: var(--heading); font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
 .gx-elevated-action { width: 100%; justify-content: center; }
+.gx-outline-card { border-radius: 10px; background: var(--surface); box-shadow: none; transition: border-color .2s, box-shadow .2s, transform .2s; }
+.gx-outline-card:hover { transform: translateY(-2px); box-shadow: 0 8px 20px rgb(12 36 60 / 8%); }
+.gx-outline-body { display: grid; gap: 0; padding: 22px; }
 .issuer-card-body { padding: 0; }
 .issuer-card-header { padding: 20px 22px 12px; }
 .issuer-card-content { padding: 10px 22px 22px; }
