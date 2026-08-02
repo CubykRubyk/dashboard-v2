@@ -1,11 +1,13 @@
 import Link from "next/link";
 import Image from "next/image";
-import { Building2, CirclePlus, Link2, Pencil, Power, PowerOff, Tags } from "lucide-react";
+import { Building2, CirclePlus, History, Link2, Pencil, Power, PowerOff, Tags } from "lucide-react";
 import { DismissibleDetails } from "@/components/ui/DismissibleDetails";
 import { GxonModal } from "@/components/ui/GxonModal";
 import { DeleteTagButton } from "@/components/settings/DeleteTagButton";
 import { DolibarrSettingsForm } from "@/components/settings/DolibarrSettingsForm";
+import { AuditLogSection } from "@/components/settings/AuditLogSection";
 import { getSession } from "@/lib/auth/session";
+import { canViewAuditLog } from "@/lib/auth/permissions";
 import { prisma } from "@/lib/prisma";
 import {
   createDocumentIssuer,
@@ -26,12 +28,14 @@ function dateInputValue(value: Date | null) {
 export default async function SettingsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ tab?: string }>;
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
-  const { tab } = await searchParams;
-  const activeTab = tab === "tags" || tab === "issuers" ? tab : "dolibarr";
-  const [user, tags, issuers, settings] = await Promise.all([
-    getSession(),
+  const resolvedSearchParams = await searchParams;
+  const tab = resolvedSearchParams.tab;
+  const user = await getSession();
+  const requestedTab = tab === "tags" || tab === "issuers" || tab === "journal" ? tab : "dolibarr";
+  const activeTab = requestedTab === "journal" && !canViewAuditLog(user?.role) ? "dolibarr" : requestedTab;
+  const [tags, issuers, settings] = await Promise.all([
     activeTab === "tags"
       ? prisma.tag.findMany({
           orderBy: [{ position: "asc" }, { name: "asc" }],
@@ -78,6 +82,15 @@ export default async function SettingsPage({
         >
           <Tags size={17} /> Tags
         </Link>
+        {canViewAuditLog(user?.role) && (
+          <Link
+            href="/settings?tab=journal"
+            className={activeTab === "journal" ? "active" : ""}
+            aria-current={activeTab === "journal" ? "page" : undefined}
+          >
+            <History size={17} /> Journal d’activité
+          </Link>
+        )}
       </nav>
 
       {activeTab === "dolibarr" && (
@@ -199,60 +212,64 @@ export default async function SettingsPage({
           {issuers.length === 0 ? (
             <div className="settings-empty">Aucune société émettrice configurée.</div>
           ) : (
-            <div className="issuer-settings-list">
+            <div className="entity-card-grid">
               {issuers.map((issuer) => (
-                <div className={`card card-action action-elevate gx-elevated-card gx-elevated-${issuer.active ? "primary" : "muted"}${issuer.active ? "" : " inactive"}`} key={issuer.id}>
-                  <div className="issuer-card-body">
-                  <div className="card-header issuer-settings-heading issuer-card-header">
-                    <div className="issuer-identity">
+                <div className={`entity-card${issuer.active ? "" : " inactive"}`} key={issuer.id}>
+                  <div className="entity-card-top">
+                    <span className="entity-card-icon">
                       {issuer.logoData ? <Image src={issuer.logoData} alt="" width={46} height={46} unoptimized /> : <Building2 size={22} />}
-                      <div><strong>{issuer.name}</strong><span>{issuer.active ? "Active" : "Inactive"}</span></div>
+                    </span>
+                    <div className="entity-card-title">
+                      <h2>{issuer.name}</h2>
+                      <p>{issuer.address || "Adresse non renseignée"}</p>
                     </div>
-                    {user?.role === "ADMIN" && (
-                      <div className="tag-settings-actions">
-                        <GxonModal triggerClassName="mini-action" trigger={<><Pencil size={14} /> Modifier</>} title={`Modifier ${issuer.name}`} description="Les assets et informations de la société seront conservés.">
-                          <form action={updateDocumentIssuer.bind(null, issuer.id)} className="issuer-form issuer-edit-form">
-                            <label>Nom<input name="name" required defaultValue={issuer.name} /></label>
-                            <label>Adresse<textarea name="address" rows={2} defaultValue={issuer.address} /></label>
-                            <label>Téléphone<input name="phone" defaultValue={issuer.phone} /></label>
-                            <label>Email<input name="email" type="email" defaultValue={issuer.email} /></label>
-                            <label>Responsable par défaut<input name="defaultResponsible" defaultValue={issuer.defaultResponsible} /></label>
-                            <label>N° attestation fluides frigorigènes<input name="refrigerantAttestationNumber" defaultValue={issuer.refrigerantAttestationNumber} /></label>
-                            <label>ID détecteur de fuite<input name="leakDetectorId" defaultValue={issuer.leakDetectorId} /></label>
-                            <label>Date de contrôle<input name="leakDetectorInspectionDate" type="date" defaultValue={dateInputValue(issuer.leakDetectorInspectionDate)} /></label>
-                            <label>Logo<input name="logo" type="file" accept="image/png,image/jpeg" /></label>
-                            <label>Tampon<input name="stamp" type="file" accept="image/png,image/jpeg" /></label>
-                            <label>Signature<input name="signature" type="file" accept="image/png,image/jpeg" /></label>
-                            <button className="button button-primary button-small">Enregistrer</button>
-                          </form>
-                        </GxonModal>
-                        <form action={toggleDocumentIssuer.bind(null, issuer.id, !issuer.active)}>
-                          <button className={`status-button${issuer.active ? " active" : ""}`}>
-                            {issuer.active ? <><PowerOff size={14} /> Désactiver</> : <><Power size={14} /> Activer</>}
-                          </button>
+                    <span className={`entity-card-pill ${issuer.active ? "active" : "inactive"}`}>
+                      {issuer.active ? "Active" : "Inactive"}
+                    </span>
+                  </div>
+                  <div className="entity-card-rows">
+                    <div className="entity-card-row"><span>Responsable</span><span>{issuer.defaultResponsible || "—"}</span></div>
+                    <div className="entity-card-row"><span>N° attestation</span><span>{issuer.refrigerantAttestationNumber || "—"}</span></div>
+                    <div className="entity-card-row"><span>Détecteur</span><span>{issuer.leakDetectorId || "—"}</span></div>
+                    <div className="entity-card-row"><span>Contrôle</span><span>{issuer.leakDetectorInspectionDate ? issuer.leakDetectorInspectionDate.toLocaleDateString("fr-FR") : "—"}</span></div>
+                  </div>
+                  <div className="entity-card-assets">
+                    <span className={`entity-card-asset${issuer.stampData ? " filled" : ""}`}>{issuer.stampData ? "Tampon ✓" : "Tampon"}</span>
+                    <span className={`entity-card-asset${issuer.signatureData ? " filled" : ""}`}>{issuer.signatureData ? "Signature ✓" : "Signature"}</span>
+                  </div>
+                  {user?.role === "ADMIN" && (
+                    <div className="entity-card-foot">
+                      <GxonModal triggerClassName="mini-action" trigger={<><Pencil size={14} /> Modifier</>} title={`Modifier ${issuer.name}`} description="Les assets et informations de la société seront conservés.">
+                        <form action={updateDocumentIssuer.bind(null, issuer.id)} className="issuer-form issuer-edit-form">
+                          <label>Nom<input name="name" required defaultValue={issuer.name} /></label>
+                          <label>Adresse<textarea name="address" rows={2} defaultValue={issuer.address} /></label>
+                          <label>Téléphone<input name="phone" defaultValue={issuer.phone} /></label>
+                          <label>Email<input name="email" type="email" defaultValue={issuer.email} /></label>
+                          <label>Responsable par défaut<input name="defaultResponsible" defaultValue={issuer.defaultResponsible} /></label>
+                          <label>N° attestation fluides frigorigènes<input name="refrigerantAttestationNumber" defaultValue={issuer.refrigerantAttestationNumber} /></label>
+                          <label>ID détecteur de fuite<input name="leakDetectorId" defaultValue={issuer.leakDetectorId} /></label>
+                          <label>Date de contrôle<input name="leakDetectorInspectionDate" type="date" defaultValue={dateInputValue(issuer.leakDetectorInspectionDate)} /></label>
+                          <label>Logo<input name="logo" type="file" accept="image/png,image/jpeg" /></label>
+                          <label>Tampon<input name="stamp" type="file" accept="image/png,image/jpeg" /></label>
+                          <label>Signature<input name="signature" type="file" accept="image/png,image/jpeg" /></label>
+                          <button className="button button-primary button-small">Enregistrer</button>
                         </form>
-                      </div>
-                    )}
-                  </div>
-                  <div className="card-body issuer-card-content"><div className="issuer-assets">
-                    <div>{issuer.stampData ? <Image src={issuer.stampData} alt="Tampon" width={88} height={45} unoptimized /> : <span>Tampon non chargé</span>}<small>Tampon</small></div>
-                    <div>{issuer.signatureData ? <Image src={issuer.signatureData} alt="Signature" width={88} height={45} unoptimized /> : <span>Signature non chargée</span>}<small>Signature</small></div>
-                  </div>
-                  <div className="issuer-settings-details">
-                    <span>{issuer.address || "Adresse non renseignée"}</span>
-                    <span>{issuer.defaultResponsible || "Responsable non renseigné"}</span>
-                    <span>{issuer.refrigerantAttestationNumber || "N° attestation non renseigné"}</span>
-                    <span>{issuer.leakDetectorId || "Détecteur non renseigné"}</span>
-                    <span>{issuer.leakDetectorInspectionDate ? `Contrôle ${issuer.leakDetectorInspectionDate.toLocaleDateString("fr-FR")}` : "Date de contrôle non renseignée"}</span>
-                  </div>
-                  </div>
-                  </div>
+                      </GxonModal>
+                      <form action={toggleDocumentIssuer.bind(null, issuer.id, !issuer.active)}>
+                        <button className={`status-button${issuer.active ? " active" : ""}`}>
+                          {issuer.active ? <><PowerOff size={14} /> Désactiver</> : <><Power size={14} /> Activer</>}
+                        </button>
+                      </form>
+                    </div>
+                  )}
                 </div>
               ))}
             </div>
           )}
         </section>
       )}
+
+      {activeTab === "journal" && <AuditLogSection searchParams={resolvedSearchParams} />}
     </>
   );
 }

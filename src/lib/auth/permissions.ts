@@ -9,3 +9,15 @@ export function canReadTechnicalDocuments(
 ) {
   return role === "ADMIN" || role === "OPERATOR" || role === "VIEWER";
 }
+
+export function canManageDocumentTemplates(role: UserRole | null | undefined) {
+  return role === "ADMIN";
+}
+
+export function canGenerateDocuments(role: UserRole | null | undefined) {
+  return role === "ADMIN" || role === "OPERATOR";
+}
+
+export function canViewAuditLog(role: UserRole | null | undefined) {
+  return role === "ADMIN";
+}

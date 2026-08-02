@@ -90,17 +90,19 @@ enum TechnicalDocumentType {
 }
 
 model User {
-  id           String      @id @default(cuid())
-  email        String      @unique
-  name         String
-  passwordHash String
-  role         UserRole    @default(OPERATOR)
-  active       Boolean     @default(true)
-  lastLoginAt  DateTime?
-  createdAt    DateTime    @default(now())
-  updatedAt    DateTime    @updatedAt
-  auditLogs    AuditLog[]
-  workSheets   WorkSheet[]
+  id                     String              @id @default(cuid())
+  email                  String              @unique
+  name                   String
+  passwordHash           String
+  role                   UserRole            @default(OPERATOR)
+  active                 Boolean             @default(true)
+  lastLoginAt            DateTime?
+  createdAt              DateTime            @default(now())
+  updatedAt              DateTime            @updatedAt
+  auditLogs              AuditLog[]
+  workSheets             WorkSheet[]
+  createdDocumentTemplates DocumentTemplate[] @relation("DocumentTemplatesCreated")
+  generatedDocuments     GeneratedDocument[] @relation("DocumentsGenerated")
 }
 
 model MaterialCategory {
@@ -225,10 +227,55 @@ model DocumentIssuer {
   stampData                    String    @default("")
   signatureData                String    @default("")
   active                       Boolean   @default(true)
+  generatedDocuments           GeneratedDocument[]
   createdAt                    DateTime  @default(now())
   updatedAt                    DateTime  @updatedAt
 
   @@index([active, name])
+}
+
+enum DocumentFieldType {
+  TEXT
+  CHECKBOX
+}
+
+model DocumentTemplate {
+  id                 String              @id @default(cuid())
+  name               String
+  storageName        String              @unique
+  originalFileName   String
+  checksumSha256     String
+  sizeBytes          Int
+  active             Boolean             @default(true)
+  fields             Json
+  createdById        String
+  createdBy          User                @relation("DocumentTemplatesCreated", fields: [createdById], references: [id], onDelete: Restrict)
+  generatedDocuments GeneratedDocument[]
+  createdAt          DateTime            @default(now())
+  updatedAt          DateTime            @updatedAt
+
+  @@index([active, name])
+}
+
+model GeneratedDocument {
+  id            String           @id @default(cuid())
+  eventId       String           @default("")
+  clientLabel   String           @default("")
+  templateId    String
+  template      DocumentTemplate @relation(fields: [templateId], references: [id], onDelete: Restrict)
+  issuerId      String?
+  issuer        DocumentIssuer?  @relation(fields: [issuerId], references: [id], onDelete: SetNull)
+  storageName   String           @unique
+  dynamicFields Json
+  enabledFields Json
+  generatedById String
+  generatedBy   User             @relation("DocumentsGenerated", fields: [generatedById], references: [id], onDelete: Restrict)
+  createdAt     DateTime         @default(now())
+  updatedAt     DateTime         @updatedAt
+
+  @@index([eventId])
+  @@index([templateId])
+  @@index([clientLabel])
 }
 
 model WorkSheetItem {

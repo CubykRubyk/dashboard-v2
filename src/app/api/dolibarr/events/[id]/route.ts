@@ -9,6 +9,7 @@ type DolibarrEvent = {
   datef?: string | number;
   socid?: string | number;
   userownerid?: string | number;
+  location?: string;
 };
 
 function dateValue(value: string | number | undefined) {
@@ -57,21 +58,24 @@ export async function GET(
       config,
       `/agendaevents/${encodeURIComponent(id)}`,
     );
+    const label = String(event.label || event.actioncomm || "").trim();
     const result = {
       id,
-      label: String(event.label || event.actioncomm || "").trim(),
+      label,
       workDate: dateValue(event.datef) || dateValue(event.datep),
       company: "",
+      client: label,
+      address: String(event.location || "").trim(),
       installer: "",
     };
 
     if (event.socid) {
       try {
-        const company = await dolibarrRequest<{ name?: string }>(
+        const thirdparty = await dolibarrRequest<{ name?: string }>(
           config,
           `/thirdparties/${encodeURIComponent(String(event.socid))}`,
         );
-        result.company = String(company.name || "").trim();
+        result.company = String(thirdparty.name || "").trim();
       } catch {}
     }
     if (event.userownerid) {

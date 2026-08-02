@@ -65,7 +65,7 @@ export function AppChrome({
 
   return (
     <div className={`app-shell${compact ? " sidebar-compact" : ""}${mobileOpen ? " sidebar-mobile-open" : ""}`}>
-      <Sidebar onNavigate={() => setMobileOpen(false)} />
+      <Sidebar onNavigate={() => setMobileOpen(false)} role={user.role} />
       <button
         className="sidebar-overlay"
         aria-label="Fermer le menu"

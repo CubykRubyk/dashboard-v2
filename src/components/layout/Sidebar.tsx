@@ -6,37 +6,48 @@ import {
   Boxes,
   BarChart3,
   Building2,
+  CalendarRange,
+  FileSignature,
   FileText,
   Gauge,
   Settings,
   Snowflake,
 } from "lucide-react";
+import type { UserRole } from "@/generated/prisma/enums";
+import { canGenerateDocuments } from "@/lib/auth/permissions";
 
-const navigation = [
-  {
-    label: "Vue d’ensemble",
-    items: [{ href: "/", label: "Dashboard", icon: Gauge }],
-  },
-  {
-    label: "Gestion",
-    items: [
-      { href: "/fiches", label: "Fiches chantier", icon: FileText },
-      { href: "/reports", label: "Statistiques", icon: BarChart3 },
-      { href: "/societati", label: "Sociétés", icon: Building2 },
-    ],
-  },
-  {
-    label: "Configuration",
-    items: [
-      { href: "/catalog", label: "Catalogue matériel", icon: Boxes },
-      { href: "/pac", label: "Catalogue PAC", icon: Snowflake },
-      { href: "/settings", label: "Paramètres", icon: Settings },
-    ],
-  },
-];
+function buildNavigation(role: UserRole) {
+  return [
+    {
+      label: "Vue d’ensemble",
+      items: [{ href: "/", label: "Dashboard", icon: Gauge }],
+    },
+    {
+      label: "Gestion",
+      items: [
+        { href: "/fiches", label: "Fiches chantier", icon: FileText },
+        { href: "/planification-sav", label: "Planification & SAV", icon: CalendarRange },
+        { href: "/reports", label: "Statistiques", icon: BarChart3 },
+        { href: "/societati", label: "Sociétés", icon: Building2 },
+        ...(canGenerateDocuments(role)
+          ? [{ href: "/documents", label: "Documents", icon: FileSignature }]
+          : []),
+      ],
+    },
+    {
+      label: "Configuration",
+      items: [
+        { href: "/catalog", label: "Catalogue matériel", icon: Boxes },
+        { href: "/pac", label: "Catalogue PAC", icon: Snowflake },
+        { href: "/settings", label: "Paramètres", icon: Settings },
+      ],
+    },
+  ];
+}
 
-export function Sidebar({ onNavigate }: { onNavigate: () => void }) {
+export function Sidebar({ onNavigate, role }: { onNavigate: () => void; role: UserRole }) {
   const pathname = usePathname();
+  const navigation = buildNavigation(role);
 
   return (
     <aside className="sidebar">
