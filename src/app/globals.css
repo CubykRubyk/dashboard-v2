@@ -1343,7 +1343,7 @@ kbd {
 .gx-elevated-body { display: grid; gap: 0; padding: 22px; }
 .gx-elevated-head { display: flex; align-items: center; gap: 12px; min-width: 0; margin-bottom: 18px; }
 .gx-elevated-head > div { min-width: 0; flex: 1; }
-.gx-elevated-head h2 { overflow: hidden; margin: 0 0 4px; color: var(--heading); font-size: 16px; text-overflow: ellipsis; white-space: nowrap; }
+.gx-elevated-head h2 { overflow-wrap: anywhere; margin: 0 0 4px; color: var(--heading); font-size: 16px; line-height: 1.25; }
 .gx-elevated-head p { overflow: hidden; margin: 0; color: var(--muted); font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
 .gx-elevated-avatar { display: grid; place-items: center; width: 44px; height: 44px; flex: 0 0 auto; border-radius: 12px; color: var(--primary); background: var(--surface); }
 .gx-elevated-statbox { display: flex; align-items: stretch; margin-bottom: 15px; padding: 14px 10px; border-radius: 10px; background: var(--surface); }
@@ -1356,10 +1356,12 @@ kbd {
 .gx-elevated-meta span { display: block; color: var(--muted); font-size: 10px; }
 .gx-elevated-meta strong { display: block; overflow: hidden; margin-top: 3px; color: var(--heading); font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
 .gx-elevated-action { width: 100%; justify-content: center; }
-.gx-outline-card { display: block; position: relative; overflow: hidden; padding: 4px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); box-shadow: 0 .1rem .3rem rgb(12 36 60 / 7%); transition: transform .25s, border-color .25s, box-shadow .25s; }
+.gx-outline-card { display: block; align-self: start; position: relative; overflow: hidden; padding: 4px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); box-shadow: 0 .1rem .3rem rgb(12 36 60 / 7%); transition: transform .25s, border-color .25s, box-shadow .25s; }
 .gx-outline-card:hover { transform: translateY(-4px); border-color: var(--primary); box-shadow: 0 .1rem .3rem rgb(49 106 255 / 20%), 0 0 0 1px var(--primary); }
 .gx-outline-card.inactive { opacity: .65; }
-.gx-outline-body { display: grid; gap: 0; padding: 20px; }
+.gx-outline-body { display: grid; gap: 0; padding: 16px; }
+.gx-outline-body .gx-elevated-head { margin-bottom: 12px; }
+.gx-outline-body .gx-elevated-statbox { margin-bottom: 0; }
 .issuer-card-body { padding: 0; }
 .issuer-card-header { padding: 20px 22px 12px; }
 .issuer-card-content { padding: 10px 22px 22px; }
