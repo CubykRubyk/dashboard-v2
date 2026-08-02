@@ -1288,7 +1288,7 @@ kbd {
 .gx-trigger-reset.button-primary { padding: 9px 13px; border-radius: 8px; color: #fff; background: var(--primary); }
 .gx-trigger-reset.button-primary:hover { color: #fff; background: var(--primary-dark); }
 .gx-trigger-reset.button-ghost { padding: 8px 12px; border: 1px solid var(--border); border-radius: 8px; color: var(--heading); background: var(--surface); }
-.gx-trigger-reset.mini-action { padding: 5px 9px; border-radius: 999px; color: var(--muted); background: #f0f2f7; }
+.gx-trigger-reset.mini-action { display: inline-flex; align-items: center; justify-content: center; min-height: 26px; height: 26px; padding: 5px 9px; border-radius: 999px; color: var(--muted); background: #f0f2f7; font-size: 11px; line-height: 1; }
 .gx-trigger-reset.mini-action:hover { color: var(--primary); background: rgb(49 106 255 / 10%); }
 .gx-modal-backdrop { position: fixed; inset: 0; z-index: 100; display: grid; place-items: center; padding: 20px; background: rgb(12 36 60 / 45%); backdrop-filter: blur(2px); }
 .gx-modal { width: min(520px, 100%); max-height: min(720px, calc(100vh - 40px)); overflow: auto; border: 1px solid var(--border); border-radius: 14px; background: var(--surface); box-shadow: 0 24px 70px rgb(12 36 60 / 24%); animation: gx-modal-in .18s ease-out; }
@@ -1303,6 +1303,7 @@ kbd {
 .gx-modal-body .technical-popover-form { position: static; inset: auto; width: auto; min-width: 0; margin: 0; padding: 0; border: 0; border-radius: 0; box-shadow: none; }
 .gx-modal-body .catalog-form,
 .gx-modal-body .edit-popover { display: grid; gap: 11px; }
+.gx-modal-body .catalog-form { position: static; inset: auto; width: auto; min-width: 0; margin: 0; padding: 0; border: 0; border-radius: 0; box-shadow: none; }
 @keyframes gx-modal-in { from { opacity: 0; transform: translateY(-24px) scale(.97); } to { opacity: 1; transform: translateY(0) scale(1); } }
 .gx-dropdown-field { position: relative; display: grid; gap: 5px; color: var(--heading); font-size: 12px; font-weight: 700; }
 .gx-dropdown { position: relative; }
