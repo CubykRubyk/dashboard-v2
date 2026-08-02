@@ -1302,6 +1302,11 @@ kbd {
 .gx-dropdown-menu { position: absolute; top: calc(100% + 6px); right: 0; left: 0; z-index: 30; max-height: 260px; overflow: auto; padding: 5px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); box-shadow: 0 5px 10px rgb(0 0 0 / 5%); }
 .gx-dropdown-item { display: flex; align-items: center; justify-content: space-between; width: 100%; padding: 8px 10px; border: 0; border-radius: 6px; color: var(--heading); background: transparent; font-size: 12px; text-align: left; }
 .gx-dropdown-item:hover, .gx-dropdown-item[aria-selected="true"] { color: var(--primary); background: rgb(49 106 255 / 10%); }
+.pac-combination-card { transition: all .25s; border: 1px solid var(--border); border-radius: 8px; padding: 4px; background: var(--surface); box-shadow: 0 0.1rem 0.3rem rgb(12 36 60 / 7%); }
+.pac-card-body { display: grid; gap: 0; align-items: center; padding: 24px; }
+.pac-combination-card:hover { transform: translateY(-4px); border-color: var(--primary); box-shadow: 0 0.1rem 0.3rem rgb(49 106 255 / 20%), 0 0 0 1px var(--primary); }
+.pac-combination-card::before { display: none; }
+.pac-combination-card.inactive { opacity: .65; }
 
 .issuer-settings-list { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; }
 .issuer-settings-card { padding: 20px; border-radius: 16px; background: linear-gradient(155deg, var(--surface), color-mix(in srgb, var(--surface) 94%, var(--primary) 6%)); box-shadow: 0 8px 22px rgb(13 44 72 / 5%); }

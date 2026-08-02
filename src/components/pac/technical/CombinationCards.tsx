@@ -62,9 +62,10 @@ export function CombinationCards({
         return (
           <Link
             href={`/pac/technical/combinations/${combination.id}`}
-            className={`card pac-combination-card${combination.active ? "" : " inactive"}`}
+            className={`card card-action action-elevate action-border-primary pac-combination-card${combination.active ? "" : " inactive"}`}
             key={combination.id}
           >
+            <div className="pac-card-body">
             <div className="pac-card-topline">
               <span className="pac-card-brand-mark"><Snowflake size={18} /></span>
               <div className="pac-card-context"><span className="pac-brand">{combination.manufacturer.name}</span><small>{combination.productRange?.name || "Gamme non renseignée"}</small></div>
@@ -87,6 +88,7 @@ export function CombinationCards({
                 <small>Configuration UI + UE</small>
               )}
               <small className="pac-card-action">Voir la combinaison</small>
+            </div>
             </div>
           </Link>
         );

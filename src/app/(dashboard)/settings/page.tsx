@@ -2,6 +2,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { Building2, CirclePlus, Link2, Pencil, Power, PowerOff, Tags } from "lucide-react";
 import { DismissibleDetails } from "@/components/ui/DismissibleDetails";
+import { GxonModal } from "@/components/ui/GxonModal";
 import { DeleteTagButton } from "@/components/settings/DeleteTagButton";
 import { DolibarrSettingsForm } from "@/components/settings/DolibarrSettingsForm";
 import { getSession } from "@/lib/auth/session";
@@ -173,10 +174,7 @@ export default async function SettingsPage({
               </div>
             </div>
             {user?.role === "ADMIN" && (
-              <DismissibleDetails
-                summaryClassName="button button-primary"
-                summary={<><CirclePlus size={17} /> Ajouter une société</>}
-              >
+              <GxonModal triggerClassName="button button-primary" trigger={<><CirclePlus size={17} /> Ajouter une société</>} title="Ajouter une société émettrice" description="Ces informations seront utilisées pour les documents techniques.">
                 <form action={createDocumentIssuer} className="issuer-form">
                   <label>Nom<input name="name" required placeholder="Nom de la société" /></label>
                   <label>Adresse<textarea name="address" rows={2} /></label>
@@ -191,7 +189,7 @@ export default async function SettingsPage({
                   <label>Signature<input name="signature" type="file" accept="image/png,image/jpeg" /></label>
                   <button className="button button-primary">Enregistrer</button>
                 </form>
-              </DismissibleDetails>
+              </GxonModal>
             )}
           </div>
 
@@ -211,7 +209,7 @@ export default async function SettingsPage({
                     </div>
                     {user?.role === "ADMIN" && (
                       <div className="tag-settings-actions">
-                        <DismissibleDetails summaryClassName="mini-action" summary={<><Pencil size={14} /> Modifier</>}>
+                        <GxonModal triggerClassName="mini-action" trigger={<><Pencil size={14} /> Modifier</>} title={`Modifier ${issuer.name}`} description="Les assets et informations de la société seront conservés.">
                           <form action={updateDocumentIssuer.bind(null, issuer.id)} className="issuer-form issuer-edit-form">
                             <label>Nom<input name="name" required defaultValue={issuer.name} /></label>
                             <label>Adresse<textarea name="address" rows={2} defaultValue={issuer.address} /></label>
@@ -226,7 +224,7 @@ export default async function SettingsPage({
                             <label>Signature<input name="signature" type="file" accept="image/png,image/jpeg" /></label>
                             <button className="button button-primary button-small">Enregistrer</button>
                           </form>
-                        </DismissibleDetails>
+                        </GxonModal>
                         <form action={toggleDocumentIssuer.bind(null, issuer.id, !issuer.active)}>
                           <button className={`status-button${issuer.active ? " active" : ""}`}>
                             {issuer.active ? <><PowerOff size={14} /> Désactiver</> : <><Power size={14} /> Activer</>}

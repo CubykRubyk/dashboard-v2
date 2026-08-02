@@ -7,7 +7,7 @@ import {
 } from "lucide-react";
 import { CatalogActionForm } from "@/components/pac/technical/CatalogActionForm";
 import { CatalogStatusToggle } from "@/components/pac/technical/CatalogStatusToggle";
-import { DismissibleDetails } from "@/components/ui/DismissibleDetails";
+import { GxonModal } from "@/components/ui/GxonModal";
 import { canManageTechnicalCatalog } from "@/lib/auth/permissions";
 import { getSession } from "@/lib/auth/session";
 import { prisma } from "@/lib/prisma";
@@ -64,11 +64,7 @@ export default async function ProductRangesPage({
           <p>Organisez les références techniques par gamme fabricant.</p>
         </div>
         {canManage && manufacturers.length > 0 && (
-          <DismissibleDetails
-            className="technical-create-details"
-            summaryClassName="button button-primary"
-            summary={<><CirclePlus size={17} /> Ajouter une gamme</>}
-          >
+          <GxonModal triggerClassName="button button-primary" trigger={<><CirclePlus size={17} /> Ajouter une gamme</>} title="Ajouter une gamme" description="Associez la gamme à son fabricant.">
             <CatalogActionForm
               action={createProductRangeAction}
               submitLabel="Créer la gamme"
@@ -91,7 +87,7 @@ export default async function ProductRangesPage({
                 <input name="name" required maxLength={120} placeholder="Ex. Altherma 3" />
               </label>
             </CatalogActionForm>
-          </DismissibleDetails>
+          </GxonModal>
         )}
       </div>
 
@@ -155,11 +151,7 @@ export default async function ProductRangesPage({
                     {canManage && (
                       <td>
                         <div className="technical-row-actions">
-                          <DismissibleDetails
-                            className="technical-edit-details"
-                            summaryClassName="mini-action"
-                            summary={<><Pencil size={14} /> Modifier</>}
-                          >
+                          <GxonModal triggerClassName="mini-action" trigger={<><Pencil size={14} /> Modifier</>} title={`Modifier ${productRange.name}`} description="Les équipements associés seront conservés.">
                             <CatalogActionForm
                               action={updateProductRangeAction.bind(null, productRange.id)}
                               submitLabel="Enregistrer"
@@ -189,7 +181,7 @@ export default async function ProductRangesPage({
                                 />
                               </label>
                             </CatalogActionForm>
-                          </DismissibleDetails>
+                          </GxonModal>
                           <CatalogStatusToggle
                             action={toggleProductRangeAction.bind(
                               null,

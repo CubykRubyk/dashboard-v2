@@ -43,7 +43,7 @@ export default async function ManufacturersPage() {
           <p>Gérez les fabricants utilisés par les gammes et les équipements.</p>
         </div>
         {canManage && (
-          <GxonModal trigger={<><CirclePlus size={17} /> Ajouter un fabricant</>} title="Ajouter un fabricant" description="Ajoutez un fabricant à la bibliothèque HVAC.">
+          <GxonModal triggerClassName="button button-primary" trigger={<><CirclePlus size={17} /> Ajouter un fabricant</>} title="Ajouter un fabricant" description="Ajoutez un fabricant à la bibliothèque HVAC.">
             <CatalogActionForm
               action={createManufacturerAction}
               submitLabel="Créer le fabricant"
@@ -99,7 +99,7 @@ export default async function ManufacturersPage() {
                     {canManage && (
                       <td>
                         <div className="technical-row-actions">
-                          <GxonModal trigger={<><Pencil size={14} /> Modifier</>} title={`Modifier ${manufacturer.name}`} description="Les gammes et équipements associés seront conservés.">
+                          <GxonModal triggerClassName="mini-action" trigger={<><Pencil size={14} /> Modifier</>} title={`Modifier ${manufacturer.name}`} description="Les gammes et équipements associés seront conservés.">
                             <CatalogActionForm
                               action={updateManufacturerAction.bind(null, manufacturer.id)}
                               submitLabel="Enregistrer"
