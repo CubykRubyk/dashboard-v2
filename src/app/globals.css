@@ -1336,6 +1336,31 @@ kbd {
 .issuer-settings-details { gap: 7px; margin-top: 17px; }
 .issuer-settings-details span { padding: 6px 9px; border-radius: 999px; background: var(--background); font-size: 11px; }
 @media (max-width: 980px) { .issuer-settings-list { grid-template-columns: 1fr; } }
+.gx-elevated-card { border: 0; border-radius: 10px; box-shadow: none; transition: transform .25s, box-shadow .25s; }
+.gx-elevated-card:hover { transform: translateY(-4px); box-shadow: 0 12px 28px rgb(12 36 60 / 12%); }
+.gx-elevated-primary { background: #eef3ff; }
+.gx-elevated-muted { background: var(--background); }
+.gx-elevated-body { display: grid; gap: 0; padding: 22px; }
+.gx-elevated-head { display: flex; align-items: center; gap: 12px; min-width: 0; margin-bottom: 18px; }
+.gx-elevated-head > div { min-width: 0; flex: 1; }
+.gx-elevated-head h2 { overflow: hidden; margin: 0 0 4px; color: var(--heading); font-size: 16px; text-overflow: ellipsis; white-space: nowrap; }
+.gx-elevated-head p { overflow: hidden; margin: 0; color: var(--muted); font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
+.gx-elevated-avatar { display: grid; place-items: center; width: 44px; height: 44px; flex: 0 0 auto; border-radius: 12px; color: var(--primary); background: var(--surface); }
+.gx-elevated-statbox { display: flex; align-items: stretch; margin-bottom: 15px; padding: 14px 10px; border-radius: 10px; background: var(--surface); }
+.gx-elevated-statbox > div:not(.gx-elevated-divider) { display: grid; width: 50%; gap: 4px; text-align: center; }
+.gx-elevated-statbox strong { overflow: hidden; color: var(--heading); font-size: 13px; text-overflow: ellipsis; white-space: nowrap; }
+.gx-elevated-statbox span { color: var(--primary); font-size: 10px; }
+.gx-elevated-divider { width: 1px; margin: 0 8px; background: var(--border); }
+.gx-elevated-meta { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 15px; }
+.gx-elevated-meta div { min-width: 0; }
+.gx-elevated-meta span { display: block; color: var(--muted); font-size: 10px; }
+.gx-elevated-meta strong { display: block; overflow: hidden; margin-top: 3px; color: var(--heading); font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
+.gx-elevated-action { width: 100%; justify-content: center; }
+.issuer-card-body { padding: 0; }
+.issuer-card-header { padding: 20px 22px 12px; }
+.issuer-card-content { padding: 10px 22px 22px; }
+.issuer-card-content .issuer-assets { display: flex; gap: 10px; margin: 0 0 15px; padding: 13px; border: 0; border-radius: 10px; background: var(--surface); }
+.issuer-card-content .issuer-assets > div { width: 50%; height: 64px; border: 0; background: var(--background); }
 .pac-model-form { display: grid; gap: 18px; }
 .pac-form-section { padding: 0; overflow: hidden; }
 .pac-form-heading { border-bottom: 1px solid var(--border); padding: 18px 20px; }

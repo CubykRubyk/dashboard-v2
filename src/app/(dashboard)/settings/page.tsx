@@ -201,7 +201,7 @@ export default async function SettingsPage({
           ) : (
             <div className="issuer-settings-list">
               {issuers.map((issuer) => (
-                <div className={`card card-action action-elevate action-border-primary issuer-settings-card${issuer.active ? "" : " inactive"}`} key={issuer.id}>
+                <div className={`card card-action action-elevate gx-elevated-card gx-elevated-${issuer.active ? "primary" : "muted"}${issuer.active ? "" : " inactive"}`} key={issuer.id}>
                   <div className="issuer-card-body">
                   <div className="card-header issuer-settings-heading issuer-card-header">
                     <div className="issuer-identity">

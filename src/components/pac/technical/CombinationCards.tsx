@@ -1,38 +1,12 @@
 import Link from "next/link";
-import { AlertTriangle, ArrowUpRight, Snowflake, Zap } from "lucide-react";
-import type {
-  CombinationEquipmentRow,
-  CombinationRow,
-} from "@/components/pac/technical/CombinationTable";
+import { AlertTriangle, Snowflake } from "lucide-react";
+import type { CombinationRow } from "@/components/pac/technical/CombinationTable";
 
 function equipmentFor(
   components: CombinationRow["components"],
   role: "INDOOR_UNIT" | "OUTDOOR_UNIT",
 ) {
   return components.find((component) => component.role === role)?.equipment;
-}
-
-function UnitValue({
-  equipment,
-  label,
-}: {
-  equipment?: CombinationEquipmentRow;
-  label: string;
-}) {
-  return (
-    <div className="pac-combination-unit">
-      <span>{label}</span>
-      {equipment ? (
-        <>
-          <strong>{equipment.manufacturerReference}</strong>
-          <small>{equipment.name}</small>
-          {!equipment.active && <small className="technical-inline-warning">Inactive</small>}
-        </>
-      ) : (
-        <small className="technical-component-missing">Composant manquant</small>
-      )}
-    </div>
-  );
 }
 
 export function CombinationCards({
@@ -62,34 +36,10 @@ export function CombinationCards({
         return (
           <Link
             href={`/pac/technical/combinations/${combination.id}`}
-            className={`card card-action action-elevate action-border-primary pac-combination-card${combination.active ? "" : " inactive"}`}
+            className={`card card-action action-elevate gx-elevated-card gx-elevated-${combination.active ? "primary" : "muted"}${combination.active ? "" : " inactive"}`}
             key={combination.id}
           >
-            <div className="card-header pac-card-header">
-            <div className="pac-card-topline">
-              <span className="pac-card-brand-mark"><Snowflake size={18} /></span>
-              <div className="pac-card-context"><span className="pac-brand">{combination.manufacturer.name}</span><small>{combination.productRange?.name || "Gamme non renseignée"}</small></div>
-              <span className={`status-dot ${combination.active ? "active" : ""}`}>
-                {combination.active ? "Active" : "Inactive"}
-              </span>
-            </div>
-            </div>
-            <div className="card-body pac-card-body"><div className="pac-card-title"><h2>{combination.name}</h2><ArrowUpRight size={18} aria-hidden="true" /></div>
-            <div className="pac-combination-units pac-card-pair">
-              <UnitValue equipment={outdoor} label="Unité extérieure" />
-              <span className="pac-card-link"><Zap size={13} /></span>
-              <UnitValue equipment={indoor} label="Unité intérieure" />
-            </div>
-            </div><div className="card-footer pac-combination-footer">
-              {needsReview ? (
-                <span className="technical-review-badge">
-                  <AlertTriangle size={13} /> Référence à vérifier
-                </span>
-              ) : (
-                <small>Configuration UI + UE</small>
-              )}
-              <small className="pac-card-action">Voir la combinaison</small>
-            </div>
+            <div className="card-body gx-elevated-body"><div className="gx-elevated-head"><span className="gx-elevated-avatar"><Snowflake size={22} /></span><div><h2>{combination.name}</h2><p>{combination.manufacturer.name} · {combination.productRange?.name || "Sans gamme"}</p></div><span className={`status-dot ${combination.active ? "active" : ""}`}>{combination.active ? "Actif" : "Inactif"}</span></div><div className="gx-elevated-statbox"><div><strong>{outdoor?.manufacturerReference || "—"}</strong><span>Unité extérieure</span></div><div className="gx-elevated-divider" /><div><strong>{indoor?.manufacturerReference || "—"}</strong><span>Unité intérieure</span></div></div><div className="gx-elevated-meta"><div><span>Modèle UE</span><strong>{outdoor?.name || "Non renseigné"}</strong></div><div><span>Modèle UI</span><strong>{indoor?.name || "Non renseigné"}</strong></div></div>{needsReview && <div className="technical-review-badge"><AlertTriangle size={13} /> Référence à vérifier</div>}<span className="button button-primary gx-elevated-action">Voir la combinaison</span></div>
           </Link>
         );
       })}
