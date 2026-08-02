@@ -201,7 +201,8 @@ export default async function SettingsPage({
           ) : (
             <div className="issuer-settings-list">
               {issuers.map((issuer) => (
-                <div className={`issuer-settings-card${issuer.active ? "" : " inactive"}`} key={issuer.id}>
+                <div className={`card card-action action-elevate action-border-primary issuer-settings-card${issuer.active ? "" : " inactive"}`} key={issuer.id}>
+                  <div className="issuer-card-body">
                   <div className="issuer-settings-heading">
                     <div className="issuer-identity">
                       {issuer.logoData ? <Image src={issuer.logoData} alt="" width={46} height={46} unoptimized /> : <Building2 size={22} />}
@@ -243,6 +244,7 @@ export default async function SettingsPage({
                     <span>{issuer.refrigerantAttestationNumber || "N° attestation non renseigné"}</span>
                     <span>{issuer.leakDetectorId || "Détecteur non renseigné"}</span>
                     <span>{issuer.leakDetectorInspectionDate ? `Contrôle ${issuer.leakDetectorInspectionDate.toLocaleDateString("fr-FR")}` : "Date de contrôle non renseignée"}</span>
+                  </div>
                   </div>
                 </div>
               ))}

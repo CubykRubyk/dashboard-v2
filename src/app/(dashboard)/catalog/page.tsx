@@ -2,6 +2,7 @@ import { CirclePlus, Layers3, Pencil, Power, PowerOff } from "lucide-react";
 import { MaterialInputType, MaterialUnit } from "@/generated/prisma/enums";
 import { prisma } from "@/lib/prisma";
 import { DismissibleDetails } from "@/components/ui/DismissibleDetails";
+import { GxonModal } from "@/components/ui/GxonModal";
 import { DeleteCatalogButton } from "@/components/catalog/DeleteCatalogButton";
 import {
   createCategory,
@@ -71,14 +72,11 @@ export default async function CatalogPage() {
       </div>
 
       <section className="catalog-toolbar card">
-        <DismissibleDetails
-          summaryClassName="button button-primary"
-          summary={
+        <GxonModal triggerClassName="button button-primary" title="Ajouter un article" description="Configurez l’article et son comportement dans les fiches chantier." trigger={
             <>
             <CirclePlus size={17} /> Ajouter un article
             </>
-          }
-        >
+          }>
           <form action={createMaterial} className="catalog-form">
             <label>Catégorie<select name="categoryId" required>{categories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}</select></label>
             <label>Nom affiché<input name="name" required placeholder="Ex. Circulateur Grundfos" /></label>
@@ -87,25 +85,22 @@ export default async function CatalogPage() {
             <label>Unité<select name="unit" defaultValue="PIECE">{Object.entries(unitLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
             <button className="button button-primary">Enregistrer l’article</button>
           </form>
-        </DismissibleDetails>
-        <DismissibleDetails
-          summaryClassName="button button-ghost"
-          summary={
+        </GxonModal>
+        <GxonModal triggerClassName="button button-ghost" title="Ajouter une catégorie" description="Les articles seront regroupés sous cette catégorie." trigger={
             <>
             <Layers3 size={17} /> Ajouter une catégorie
             </>
-          }
-        >
+          }>
           <form action={createCategory} className="catalog-form compact-form">
             <label>Nom de la catégorie<input name="name" required placeholder="Ex. Évacuation condensats" /></label>
             <button className="button button-primary">Enregistrer</button>
           </form>
-        </DismissibleDetails>
+        </GxonModal>
       </section>
 
       <div className="catalog-categories">
         {categories.map((category) => (
-          <section className="card catalog-category" key={category.id}>
+          <section className="card card-action action-elevate action-border-primary catalog-category" key={category.id}>
             <div className="catalog-category-header">
               <div>
                 <p className="eyebrow">Catégorie</p>
@@ -113,16 +108,12 @@ export default async function CatalogPage() {
               </div>
               <div className="category-actions">
                 <span className="badge">{category.materials.length} article{category.materials.length > 1 ? "s" : ""}</span>
-                <DismissibleDetails
-                  className="edit-details"
-                  summaryClassName="mini-action"
-                  summary={<><Pencil size={14} /> Modifier</>}
-                >
+                <GxonModal triggerClassName="mini-action" trigger={<><Pencil size={14} /> Modifier</>} title={`Modifier ${category.name}`} description="Les articles de cette catégorie seront conservés.">
                   <form action={updateCategory.bind(null, category.id)} className="edit-popover category-edit-form">
                     <label>Nom de la catégorie<input name="name" required defaultValue={category.name} /></label>
                     <button className="button button-primary button-small">Enregistrer</button>
                   </form>
-                </DismissibleDetails>
+                </GxonModal>
                 {category.materials.length === 0 && (
                   <DeleteCatalogButton
                     action={deleteCategory.bind(null, category.id)}
@@ -153,17 +144,13 @@ export default async function CatalogPage() {
                                 <div className="variant-row" key={variant.id}>
                                   <span><strong>{variant.name}</strong><small>{variant.reportLabel}</small></span>
                                   <div className="variant-actions">
-                                    <DismissibleDetails
-                                      className="edit-details"
-                                      summaryClassName="mini-action"
-                                      summary={<Pencil size={14} />}
-                                    >
+                                    <GxonModal triggerClassName="mini-action" trigger={<Pencil size={14} />} title={`Modifier ${variant.name}`} description="Modifiez le modèle affiché dans les fiches chantier.">
                                       <form action={updateVariant.bind(null, variant.id)} className="edit-popover variant-edit-form">
                                         <label>Nom<input name="name" required defaultValue={variant.name} /></label>
                                         <label>Texte du rapport<input name="reportLabel" required defaultValue={variant.reportLabel} /></label>
                                         <button className="button button-primary button-small">Enregistrer</button>
                                       </form>
-                                    </DismissibleDetails>
+                                    </GxonModal>
                                     <form action={toggleVariant.bind(null, variant.id, !variant.active)}>
                                       <button className="mini-action" title={variant.active ? "Désactiver" : "Activer"}>
                                         {variant.active ? <PowerOff size={14} /> : <Power size={14} />}
@@ -197,11 +184,7 @@ export default async function CatalogPage() {
                       </td>
                       <td>
                         <div className="catalog-row-actions">
-                          <DismissibleDetails
-                            className="edit-details material-edit-details"
-                            summaryClassName="mini-action"
-                            summary={<><Pencil size={14} /> Modifier</>}
-                          >
+                          <GxonModal triggerClassName="mini-action" trigger={<><Pencil size={14} /> Modifier</>} title={`Modifier ${material.name}`} description="Les valeurs utilisées dans les fiches chantier seront mises à jour.">
                             <form action={updateMaterial.bind(null, material.id)} className="edit-popover material-edit-form">
                               <label>Catégorie<select name="categoryId" defaultValue={material.categoryId}>{categories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}</select></label>
                               <label>Nom affiché<input name="name" required defaultValue={material.name} /></label>
@@ -210,7 +193,7 @@ export default async function CatalogPage() {
                               <label>Unité<select name="unit" defaultValue={material.unit}>{Object.entries(unitLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
                               <button className="button button-primary button-small">Enregistrer les modifications</button>
                             </form>
-                          </DismissibleDetails>
+                          </GxonModal>
                           <DeleteCatalogButton
                             action={deleteMaterial.bind(null, material.id)}
                             kind="article"

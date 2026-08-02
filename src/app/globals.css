@@ -444,6 +444,8 @@ kbd {
 .catalog-category-header h2 { margin: 0; font-size: 17px; }
 .catalog-category-header .eyebrow { margin-bottom: 2px; }
 .catalog-category-header .badge { color: var(--primary); background: #edf2ff; }
+.catalog-category { transition: all .25s; border-radius: 8px; box-shadow: 0 0.1rem 0.3rem rgb(12 36 60 / 7%); }
+.catalog-category:hover { transform: translateY(-4px); border-color: var(--primary); box-shadow: 0 0.1rem 0.3rem rgb(49 106 255 / 20%), 0 0 0 1px var(--primary); }
 .category-actions,
 .variant-actions { display: flex; align-items: center; gap: 7px; }
 .catalog-row-actions { display: flex; align-items: center; gap: 7px; white-space: nowrap; }
@@ -1311,6 +1313,9 @@ kbd {
 .issuer-settings-list { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; }
 .issuer-settings-card { padding: 20px; border-radius: 16px; background: linear-gradient(155deg, var(--surface), color-mix(in srgb, var(--surface) 94%, var(--primary) 6%)); box-shadow: 0 8px 22px rgb(13 44 72 / 5%); }
 .issuer-settings-card:hover { border-color: color-mix(in srgb, var(--primary) 42%, var(--border)); box-shadow: 0 12px 28px rgb(13 44 72 / 9%); }
+.issuer-settings-card { padding: 4px; border-radius: 8px; transition: all .25s; background: var(--surface); box-shadow: 0 0.1rem 0.3rem rgb(12 36 60 / 7%); }
+.issuer-card-body { display: grid; gap: 16px; padding: 24px; }
+.issuer-settings-card:hover { transform: translateY(-4px); border-color: var(--primary); box-shadow: 0 0.1rem 0.3rem rgb(49 106 255 / 20%), 0 0 0 1px var(--primary); }
 .issuer-identity > img { width: 54px; height: 54px; border-radius: 14px; }
 .issuer-identity > div strong { font-size: 15px; }
 .issuer-assets { margin-top: 18px; padding-top: 16px; border-top: 1px solid var(--border); }
