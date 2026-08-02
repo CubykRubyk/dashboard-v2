@@ -203,7 +203,7 @@ export default async function SettingsPage({
               {issuers.map((issuer) => (
                 <div className={`card card-action action-elevate action-border-primary issuer-settings-card${issuer.active ? "" : " inactive"}`} key={issuer.id}>
                   <div className="issuer-card-body">
-                  <div className="issuer-settings-heading">
+                  <div className="card-header issuer-settings-heading issuer-card-header">
                     <div className="issuer-identity">
                       {issuer.logoData ? <Image src={issuer.logoData} alt="" width={46} height={46} unoptimized /> : <Building2 size={22} />}
                       <div><strong>{issuer.name}</strong><span>{issuer.active ? "Active" : "Inactive"}</span></div>
@@ -234,7 +234,7 @@ export default async function SettingsPage({
                       </div>
                     )}
                   </div>
-                  <div className="issuer-assets">
+                  <div className="card-body issuer-card-content"><div className="issuer-assets">
                     <div>{issuer.stampData ? <Image src={issuer.stampData} alt="Tampon" width={88} height={45} unoptimized /> : <span>Tampon non chargé</span>}<small>Tampon</small></div>
                     <div>{issuer.signatureData ? <Image src={issuer.signatureData} alt="Signature" width={88} height={45} unoptimized /> : <span>Signature non chargée</span>}<small>Signature</small></div>
                   </div>
@@ -244,6 +244,7 @@ export default async function SettingsPage({
                     <span>{issuer.refrigerantAttestationNumber || "N° attestation non renseigné"}</span>
                     <span>{issuer.leakDetectorId || "Détecteur non renseigné"}</span>
                     <span>{issuer.leakDetectorInspectionDate ? `Contrôle ${issuer.leakDetectorInspectionDate.toLocaleDateString("fr-FR")}` : "Date de contrôle non renseignée"}</span>
+                  </div>
                   </div>
                   </div>
                 </div>

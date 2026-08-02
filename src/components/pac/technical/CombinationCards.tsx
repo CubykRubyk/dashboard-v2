@@ -65,7 +65,7 @@ export function CombinationCards({
             className={`card card-action action-elevate action-border-primary pac-combination-card${combination.active ? "" : " inactive"}`}
             key={combination.id}
           >
-            <div className="pac-card-body">
+            <div className="card-header pac-card-header">
             <div className="pac-card-topline">
               <span className="pac-card-brand-mark"><Snowflake size={18} /></span>
               <div className="pac-card-context"><span className="pac-brand">{combination.manufacturer.name}</span><small>{combination.productRange?.name || "Gamme non renseignée"}</small></div>
@@ -73,13 +73,14 @@ export function CombinationCards({
                 {combination.active ? "Active" : "Inactive"}
               </span>
             </div>
-            <div className="pac-card-title"><h2>{combination.name}</h2><ArrowUpRight size={18} aria-hidden="true" /></div>
+            </div>
+            <div className="card-body pac-card-body"><div className="pac-card-title"><h2>{combination.name}</h2><ArrowUpRight size={18} aria-hidden="true" /></div>
             <div className="pac-combination-units pac-card-pair">
               <UnitValue equipment={outdoor} label="Unité extérieure" />
               <span className="pac-card-link"><Zap size={13} /></span>
               <UnitValue equipment={indoor} label="Unité intérieure" />
             </div>
-            <div className="pac-combination-footer">
+            </div><div className="card-footer pac-combination-footer">
               {needsReview ? (
                 <span className="technical-review-badge">
                   <AlertTriangle size={13} /> Référence à vérifier
@@ -88,7 +89,6 @@ export function CombinationCards({
                 <small>Configuration UI + UE</small>
               )}
               <small className="pac-card-action">Voir la combinaison</small>
-            </div>
             </div>
           </Link>
         );

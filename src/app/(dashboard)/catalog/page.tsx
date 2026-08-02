@@ -100,7 +100,7 @@ export default async function CatalogPage() {
 
       <div className="catalog-categories">
         {categories.map((category) => (
-          <section className="card card-action action-elevate action-border-primary catalog-category" key={category.id}>
+          <section className="card catalog-category" key={category.id}>
             <div className="catalog-category-header">
               <div>
                 <p className="eyebrow">Catégorie</p>
