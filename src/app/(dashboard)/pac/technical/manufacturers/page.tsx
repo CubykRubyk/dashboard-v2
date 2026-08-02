@@ -5,7 +5,7 @@ import {
 } from "lucide-react";
 import { CatalogActionForm } from "@/components/pac/technical/CatalogActionForm";
 import { CatalogStatusToggle } from "@/components/pac/technical/CatalogStatusToggle";
-import { DismissibleDetails } from "@/components/ui/DismissibleDetails";
+import { GxonModal } from "@/components/ui/GxonModal";
 import { canManageTechnicalCatalog } from "@/lib/auth/permissions";
 import { getSession } from "@/lib/auth/session";
 import { prisma } from "@/lib/prisma";
@@ -43,11 +43,7 @@ export default async function ManufacturersPage() {
           <p>Gérez les fabricants utilisés par les gammes et les équipements.</p>
         </div>
         {canManage && (
-          <DismissibleDetails
-            className="technical-create-details"
-            summaryClassName="button button-primary"
-            summary={<><CirclePlus size={17} /> Ajouter un fabricant</>}
-          >
+          <GxonModal trigger={<><CirclePlus size={17} /> Ajouter un fabricant</>} title="Ajouter un fabricant" description="Ajoutez un fabricant à la bibliothèque HVAC.">
             <CatalogActionForm
               action={createManufacturerAction}
               submitLabel="Créer le fabricant"
@@ -59,7 +55,7 @@ export default async function ManufacturersPage() {
                 <input name="name" required maxLength={100} placeholder="Ex. Daikin" />
               </label>
             </CatalogActionForm>
-          </DismissibleDetails>
+          </GxonModal>
         )}
       </div>
 
@@ -103,11 +99,7 @@ export default async function ManufacturersPage() {
                     {canManage && (
                       <td>
                         <div className="technical-row-actions">
-                          <DismissibleDetails
-                            className="technical-edit-details"
-                            summaryClassName="mini-action"
-                            summary={<><Pencil size={14} /> Modifier</>}
-                          >
+                          <GxonModal trigger={<><Pencil size={14} /> Modifier</>} title={`Modifier ${manufacturer.name}`} description="Les gammes et équipements associés seront conservés.">
                             <CatalogActionForm
                               action={updateManufacturerAction.bind(null, manufacturer.id)}
                               submitLabel="Enregistrer"
@@ -123,7 +115,7 @@ export default async function ManufacturersPage() {
                                 />
                               </label>
                             </CatalogActionForm>
-                          </DismissibleDetails>
+                          </GxonModal>
                           <CatalogStatusToggle
                             action={toggleManufacturerAction.bind(
                               null,

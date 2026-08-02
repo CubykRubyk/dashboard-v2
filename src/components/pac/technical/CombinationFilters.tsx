@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import { RotateCcw, Search } from "lucide-react";
+import { GxonDropdown } from "@/components/ui/GxonDropdown";
 
 export function CombinationFilters({
   filters,
@@ -23,6 +24,8 @@ export function CombinationFilters({
 }) {
   const [manufacturerId, setManufacturerId] = useState(filters.manufacturer);
   const [productRangeId, setProductRangeId] = useState(filters.range);
+  const [activeValue, setActiveValue] = useState(filters.active);
+  const [reviewValue, setReviewValue] = useState(filters.review);
   const visibleRanges = useMemo(
     () => manufacturerId
       ? productRanges.filter((range) => range.manufacturerId === manufacturerId)
@@ -50,53 +53,10 @@ export function CombinationFilters({
           />
         </span>
       </label>
-      <label>
-        <span>Fabricant</span>
-        <select
-          name="manufacturer"
-          value={manufacturerId}
-          onChange={(event) => {
-            setManufacturerId(event.currentTarget.value);
-            setProductRangeId("");
-          }}
-        >
-          <option value="">Tous</option>
-          {manufacturers.map((manufacturer) => (
-            <option value={manufacturer.id} key={manufacturer.id}>
-              {manufacturer.name}
-            </option>
-          ))}
-        </select>
-      </label>
-      <label>
-        <span>Gamme</span>
-        <select
-          name="range"
-          value={productRangeId}
-          onChange={(event) => setProductRangeId(event.currentTarget.value)}
-        >
-          <option value="">Toutes</option>
-          {visibleRanges.map((range) => (
-            <option value={range.id} key={range.id}>{range.name}</option>
-          ))}
-        </select>
-      </label>
-      <label>
-        <span>Statut</span>
-        <select name="active" defaultValue={filters.active}>
-          <option value="active">Actives</option>
-          <option value="inactive">Inactives</option>
-          <option value="all">Toutes</option>
-        </select>
-      </label>
-      <label>
-        <span>Références</span>
-        <select name="review" defaultValue={filters.review}>
-          <option value="">Toutes</option>
-          <option value="required">À vérifier</option>
-          <option value="verified">Vérifiées</option>
-        </select>
-      </label>
+      <GxonDropdown name="manufacturer" label="Fabricant" value={manufacturerId} onChange={(value) => { setManufacturerId(value); setProductRangeId(""); }} options={[{ value: "", label: "Tous" }, ...manufacturers.map((manufacturer) => ({ value: manufacturer.id, label: manufacturer.name }))]} />
+      <GxonDropdown name="range" label="Gamme" value={productRangeId} onChange={setProductRangeId} options={[{ value: "", label: "Toutes" }, ...visibleRanges.map((range) => ({ value: range.id, label: range.name }))]} />
+      <GxonDropdown name="active" label="Statut" value={activeValue} onChange={setActiveValue} options={[{ value: "active", label: "Actives" }, { value: "inactive", label: "Inactives" }, { value: "all", label: "Toutes" }]} />
+      <GxonDropdown name="review" label="Références" value={reviewValue} onChange={setReviewValue} options={[{ value: "", label: "Toutes" }, { value: "required", label: "À vérifier" }, { value: "verified", label: "Vérifiées" }]} />
       <div className="filter-actions">
         <button className="button button-primary">Filtrer</button>
         {filtered && (
