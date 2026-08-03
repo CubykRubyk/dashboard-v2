@@ -20,8 +20,9 @@ type DolibarrAgendaEvent = {
 
 type DolibarrOwner = { firstname?: string; lastname?: string; color?: string };
 
-// Nominatim autorise 1 requête/seconde — throttle entre géocodages successifs pendant une sync par lot.
-const GEOCODE_THROTTLE_MS = 1_100;
+// Base Adresse Nationale (géocodeur principal, voir lib/geo/geocode.ts) n'impose pas la politique
+// stricte de Nominatim (1/s) — throttle réduit, gardé par précaution pendant une sync par lot.
+const GEOCODE_THROTTLE_MS = 300;
 const SYNC_WINDOW_DAYS = 14;
 
 function sleep(ms: number) {
