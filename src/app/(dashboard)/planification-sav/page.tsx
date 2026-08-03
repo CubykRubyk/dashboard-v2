@@ -2,7 +2,7 @@ import { prisma } from "@/lib/prisma";
 import { serializeSavTicket } from "@/lib/sav/mappers";
 import { getDolibarrConfig } from "@/lib/dolibarr/client";
 import { serializeIntervention, syncInterventionPlannings } from "@/lib/dolibarr/interventions";
-import { computeProximitySuggestions } from "@/lib/planification/proximity";
+import { computeProximitySuggestions, startOfTodayParis } from "@/lib/planification/proximity";
 import { PlanificationSavDashboard } from "@/components/planification-sav/PlanificationSavDashboard";
 import type { ProximitySuggestion } from "@/components/planification-sav/mock-data";
 
@@ -60,7 +60,7 @@ export default async function PlanificationSavPage({
       where: {
         dismissed: false,
         savTicket: { status: "OUVERT", planningDate: null },
-        intervention: { startAt: { gte: new Date() } },
+        intervention: { startAt: { gte: startOfTodayParis() } },
       },
       orderBy: { travelMinutes: "asc" },
     }),

@@ -23,7 +23,9 @@ import {
   LockKeyhole,
   Map,
   MapPin,
+  Maximize2,
   MessageSquarePlus,
+  Minimize2,
   Navigation,
   Phone,
   RefreshCcw,
@@ -52,7 +54,9 @@ import {
   type ItineraryResult,
 } from "./api";
 import type { NoteToken } from "@/lib/dolibarr/noteFormat";
+import { getTodayIsoDateParis, groupItemsByDepartment } from "@/lib/geo/departments";
 import { PlanningCalendar } from "./PlanningCalendar";
+import { DepartmentCartogram } from "./DepartmentCartogram";
 import { useToast } from "@/components/layout/ToastProvider";
 import { RowActionMenu } from "@/components/ui/RowActionMenu";
 import styles from "./planification-sav.module.css";
@@ -75,11 +79,29 @@ const PlanningMap = dynamic(
   },
 );
 
+const DepartmentShapeMap = dynamic(
+  () => import("./DepartmentShapeMap").then((module) => module.DepartmentShapeMap),
+  {
+    ssr: false,
+    loading: () => (
+      <div className={styles.mapLoading}>
+        <MapPin aria-hidden size={22} />
+        Chargement de la carte…
+      </div>
+    ),
+  },
+);
+
+type MapMode = "pins" | "cartogram" | "shape";
 type ViewMode = "map" | "calendar" | "list" | "kanban";
 type KanbanColumnKey = "nonplanned" | "planned" | "closed";
 type WorkflowAction = "note" | "close" | "planning" | null;
 type ListStatusFilter = "open" | "closed" | "all";
 const priorityOptions: PlanningItem["priority"][] = ["Basse", "Normale", "Haute", "Urgente"];
+
+// Masquée temporairement (demande utilisateur, "ma deruteaza") — la légende de la carte et le badge
+// "✦ suggestion active" sur les pins. Repasser à true pour les réafficher.
+const SHOW_MAP_LEGEND = false;
 
 interface NewSavDraft {
   title: string;
@@ -230,6 +252,9 @@ export function PlanificationSavDashboard({
   const router = useRouter();
   const { showToast } = useToast();
   const [view, setView] = useState<ViewMode>("map");
+  const [mapFullscreen, setMapFullscreen] = useState(false);
+  const [mapMode, setMapMode] = useState<MapMode>("pins");
+  const [selectedDeptCode, setSelectedDeptCode] = useState<string | null>(null);
   const [filters, setFilters] = useState(initialFilters);
   const [selectedId, setSelectedId] = useState<string | null>(initialSelectedId);
   const [activeSuggestion, setActiveSuggestion] =
@@ -359,6 +384,15 @@ export function PlanificationSavDashboard({
     return () => document.removeEventListener("keydown", closeOnEscape);
   }, [selectedItem, workflowAction]);
 
+  useEffect(() => {
+    if (!mapFullscreen) return;
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setMapFullscreen(false);
+    };
+    document.addEventListener("keydown", closeOnEscape);
+    return () => document.removeEventListener("keydown", closeOnEscape);
+  }, [mapFullscreen]);
+
   const filterOptions = useMemo(
     () => ({
       teams: Array.from(new Set(planningItems.map((item) => item.team))).sort(),
@@ -425,6 +459,8 @@ export function PlanificationSavDashboard({
     () => filteredItems.filter((item) => !isSundayIntervention(item)),
     [filteredItems],
   );
+  const deptGroups = useMemo(() => groupItemsByDepartment(mapItems), [mapItems]);
+  const selectedDeptGroup = selectedDeptCode ? deptGroups.get(selectedDeptCode) : null;
   const suggestionItemIds = useMemo(
     () =>
       new globalThis.Set(
@@ -723,6 +759,7 @@ export function PlanificationSavDashboard({
         />
       </section>
 
+      <div className={mapFullscreen ? styles.mapFullscreen : undefined}>
       <section className={styles.filterCard} aria-label="Filtres">
         <button
           type="button"
@@ -826,22 +863,22 @@ export function PlanificationSavDashboard({
             active={view === "calendar"}
             icon={CalendarDays}
             label="Calendrier"
-            onClick={() => setView("calendar")}
+            onClick={() => { setMapFullscreen(false); setView("calendar"); }}
           />
           <ViewTab
             active={view === "list"}
             icon={List}
             label="Liste"
-            onClick={() => setView("list")}
+            onClick={() => { setMapFullscreen(false); setView("list"); }}
           />
           <ViewTab
             active={view === "kanban"}
             icon={Kanban}
             label="Kanban"
-            onClick={() => setView("kanban")}
+            onClick={() => { setMapFullscreen(false); setView("kanban"); }}
           />
         </div>
-        {view === "map" && (
+        {view === "map" && mapMode === "pins" && (
           <button
             type="button"
             className={`button button-small ${routeMode ? "button-primary" : "button-outline-primary"}`}
@@ -862,44 +899,161 @@ export function PlanificationSavDashboard({
           <article className={styles.mapCard}>
             <div className={styles.mapHeader}>
               <div>
-                <p className="eyebrow">Zone de Lyon</p>
                 <h2>Couverture terrain</h2>
               </div>
-              <div className={styles.mapLegend}>
-                <span><i className={styles.legendSav} />SAV</span>
-                <span><i className={styles.legendUrgent} />Urgence</span>
-                <span><i className={styles.legendIntervention} />Intervention</span>
-                <span><i className={styles.legendClosed} />Clôturé</span>
-                <span><i className={styles.legendSuggestion} />Suggestion active</span>
+              <div className={styles.mapHeaderRight}>
+                {SHOW_MAP_LEGEND && (
+                  <div className={styles.mapLegend}>
+                    <span><i className={styles.legendSav} />SAV</span>
+                    <span><i className={styles.legendUrgent} />Urgence</span>
+                    <span><i className={styles.legendIntervention} />Intervention</span>
+                    <span><i className={styles.legendClosed} />Clôturé</span>
+                    <span><i className={styles.legendSuggestion} />Suggestion active</span>
+                  </div>
+                )}
+                <div className={styles.quickFilters} role="group" aria-label="Type de carte">
+                  {([
+                    { value: "pins", label: "Pins" },
+                    { value: "cartogram", label: "Cartogramme" },
+                    { value: "shape", label: "Départements" },
+                  ] as const).map((option) => (
+                    <button
+                      key={option.value}
+                      type="button"
+                      className={mapMode === option.value ? styles.quickFilterActive : ""}
+                      onClick={() => {
+                        setMapMode(option.value);
+                        setSelectedDeptCode(null);
+                        if (option.value !== "pins") { setRouteMode(false); setRouteResult(null); }
+                      }}
+                    >
+                      {option.label}
+                    </button>
+                  ))}
+                </div>
+                <button
+                  type="button"
+                  className={styles.mapFullscreenToggle}
+                  onClick={() => setMapFullscreen((current) => !current)}
+                  aria-label={mapFullscreen ? "Quitter le plein écran" : "Passer en plein écran"}
+                  title={mapFullscreen ? "Quitter le plein écran" : "Passer en plein écran"}
+                >
+                  {mapFullscreen ? <Minimize2 aria-hidden size={16} /> : <Maximize2 aria-hidden size={16} />}
+                </button>
               </div>
             </div>
             <div className={styles.mapFrame}>
-              <PlanningMap
-                items={mapItems}
-                activeSuggestion={activeSuggestion}
-                onSelectItem={selectItem}
-                routeMode={routeMode}
-                routeStopIds={routeStopIds}
-                routeGeometry={routeResult?.geometry ?? []}
-                onToggleRouteStop={toggleRouteStop}
-                headquarters={headquarters}
-                onBackgroundClick={() => setActiveSuggestion(null)}
-                suggestionItemIds={suggestionItemIds}
-              />
-              <div className={styles.mapCount}>
-                <LocateFixed aria-hidden size={15} />
-                {mapItems.filter((item) => item.coordinates).length} points
-                {mapItems.some((item) => !item.coordinates) && (
-                  <small>
-                    {" "}
-                    · {mapItems.filter((item) => !item.coordinates).length} sans position connue
-                  </small>
-                )}
-              </div>
+              {mapMode === "pins" && (
+                <>
+                  <PlanningMap
+                    items={mapItems}
+                    activeSuggestion={activeSuggestion}
+                    onSelectItem={selectItem}
+                    routeMode={routeMode}
+                    routeStopIds={routeStopIds}
+                    routeGeometry={routeResult?.geometry ?? []}
+                    onToggleRouteStop={toggleRouteStop}
+                    headquarters={headquarters}
+                    onBackgroundClick={() => setActiveSuggestion(null)}
+                    suggestionItemIds={SHOW_MAP_LEGEND ? suggestionItemIds : undefined}
+                  />
+                  <div className={styles.mapCount}>
+                    <LocateFixed aria-hidden size={15} />
+                    {mapItems.filter((item) => item.coordinates).length} points
+                    {mapItems.some((item) => !item.coordinates) && (
+                      <small>
+                        {" "}
+                        · {mapItems.filter((item) => !item.coordinates).length} sans position connue
+                      </small>
+                    )}
+                  </div>
+                </>
+              )}
+              {mapMode === "cartogram" && (
+                <DepartmentCartogram
+                  items={mapItems}
+                  selectedCode={selectedDeptCode}
+                  onSelectDepartment={(code) => setSelectedDeptCode(code)}
+                />
+              )}
+              {mapMode === "shape" && (
+                <DepartmentShapeMap
+                  items={mapItems}
+                  selectedCode={selectedDeptCode}
+                  onSelectDepartment={(code) => setSelectedDeptCode(code)}
+                />
+              )}
             </div>
           </article>
 
-          {routeMode ? (
+          {mapMode !== "pins" ? (
+            <aside className={styles.suggestionsCard}>
+              <div className={styles.suggestionHeading}>
+                <span><MapPin aria-hidden size={18} /></span>
+                <div>
+                  <h2>{selectedDeptCode ? `Département ${selectedDeptCode}${selectedDeptGroup ? ` · ${selectedDeptGroup.nom}` : ""}` : "Détail par département"}</h2>
+                  <p>{selectedDeptCode ? "SAV et interventions de ce département" : "Cliquez sur un département coloré pour voir le détail"}</p>
+                </div>
+              </div>
+              <div className={styles.suggestionList}>
+                {!selectedDeptCode && (
+                  <div className={styles.emptyState}>
+                    <MapPin aria-hidden size={22} />
+                    <strong>Aucun département sélectionné</strong>
+                    <p>Cliquez sur un département coloré sur la carte pour voir ce qu’il contient.</p>
+                  </div>
+                )}
+                {selectedDeptCode && !selectedDeptGroup?.savItems.length && !selectedDeptGroup?.interventionItems.length && (
+                  <div className={styles.emptyState}>
+                    <MapPin aria-hidden size={22} />
+                    <strong>Rien dans ce département</strong>
+                  </div>
+                )}
+                {selectedDeptCode && Boolean(selectedDeptGroup?.savItems.length) && (
+                  <div className={styles.deptDrilldownGroup}>
+                    <h4>SAV ({selectedDeptGroup!.savItems.length})</h4>
+                    {selectedDeptGroup!.savItems.map((item) => (
+                      <button type="button" key={item.id} className={styles.deptDrilldownRow} onClick={() => selectItem(item)}>
+                        <span className={styles.deptDrilldownRef}>{item.reference}</span>
+                        <span className={styles.deptDrilldownMain}>
+                          <strong>{item.title}</strong>
+                          <small>{item.company} · {item.address}</small>
+                        </span>
+                        <ChevronRight aria-hidden size={15} />
+                      </button>
+                    ))}
+                  </div>
+                )}
+                {selectedDeptCode && Boolean(selectedDeptGroup?.interventionItems.length) && (
+                  <div className={styles.deptDrilldownGroup}>
+                    <h4>Interventions ({selectedDeptGroup!.interventionItems.length})</h4>
+                    {selectedDeptGroup!.interventionItems.map((item) => {
+                      const isToday = item.date === getTodayIsoDateParis();
+                      return (
+                        <button
+                          type="button"
+                          key={item.id}
+                          className={`${styles.deptDrilldownRow}${isToday ? ` ${styles.deptDrilldownRowToday}` : ""}`}
+                          onClick={() => selectItem(item)}
+                        >
+                          <span className={styles.deptDrilldownMain}>
+                            <strong>{item.title}</strong>
+                            <small>{item.company} · {item.address}</small>
+                          </span>
+                          {item.date && (
+                            <span className={styles.deptDrilldownDate}>
+                              {dateFormatter.format(new Date(`${item.date}T12:00:00`))}
+                            </span>
+                          )}
+                          <ChevronRight aria-hidden size={15} />
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            </aside>
+          ) : routeMode ? (
             <aside className={styles.suggestionsCard}>
               <div className={styles.suggestionHeading}>
                 <span><Route aria-hidden size={18} /></span>
@@ -1086,6 +1240,7 @@ export function PlanificationSavDashboard({
           )}
         </section>
       )}
+      </div>
 
       {view === "calendar" && (
         <section className={styles.viewCard} aria-label="Vue calendrier">

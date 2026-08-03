@@ -14,6 +14,21 @@ function sleep(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+// `InterventionPlanning.startAt` encode l'heure locale Europe/Paris dans les composantes UTC brutes
+// (voir `syncInterventionPlannings`) — pour comparer "aujourd'hui ou plus tard" sans exclure les
+// intervenions du jour déjà passées dans la journée (ex. 8h30 alors qu'il est 15h), on construit le
+// début de la journée Paris courante avec le même encodage, plutôt que d'utiliser l'heure réelle.
+export function startOfTodayParis(): Date {
+  const parts = new Intl.DateTimeFormat("fr-CA", {
+    timeZone: "Europe/Paris",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(new Date());
+  const get = (type: Intl.DateTimeFormatPartTypes) => parts.find((part) => part.type === type)?.value || "";
+  return new Date(`${get("year")}-${get("month")}-${get("day")}T00:00:00.000Z`);
+}
+
 function haversineKm(a: [number, number], b: [number, number]) {
   const toRad = (deg: number) => (deg * Math.PI) / 180;
   const earthRadiusKm = 6371;
@@ -39,7 +54,7 @@ export async function computeProximitySuggestions(): Promise<void> {
     }),
     prisma.interventionPlanning.findMany({
       where: {
-        startAt: { gte: new Date() },
+        startAt: { gte: startOfTodayParis() },
         latitude: { not: null },
         longitude: { not: null },
       },
