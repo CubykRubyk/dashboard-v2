@@ -165,6 +165,15 @@ function isoDate(date: Date) {
   return date.toISOString().slice(0, 10);
 }
 
+function currentWeekRange() {
+  const today = new Date();
+  const monday = new Date(today);
+  monday.setDate(today.getDate() - ((today.getDay() + 6) % 7));
+  const sunday = new Date(monday);
+  sunday.setDate(monday.getDate() + 6);
+  return { start: isoDate(monday), end: isoDate(sunday) };
+}
+
 function todayIsoDate() {
   return isoDate(new Date());
 }
@@ -375,13 +384,14 @@ export function PlanificationSavDashboard({
 
   const filteredItems = useMemo(() => {
     const normalizedSearch = search.trim().toLocaleLowerCase("fr");
+    const weekRange = currentWeekRange();
     return planningItems.filter((item) => {
       // Le filtre de période (Aujourd'hui/Demain/Cette semaine) ne s'applique qu'aux interventions
       // Dolibarr planifiées — les SAV n'ont pas de date de planification tant qu'ils sont "à
       // planifier", donc ce filtre ne doit jamais les masquer.
       const dateMatches =
         item.kind === "sav" ||
-        filters.period === "week" ||
+        (filters.period === "week" && item.date >= weekRange.start && item.date <= weekRange.end) ||
         (filters.period === "today" && item.date === todayIsoDate()) ||
         (filters.period === "tomorrow" && item.date === tomorrowIsoDate());
       const searchMatches =
