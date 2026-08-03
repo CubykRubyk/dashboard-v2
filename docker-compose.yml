@@ -34,7 +34,7 @@ services:
       GENERATED_DOCUMENT_STORAGE_ROOT: /app/data/generated-documents
       GENERATED_DOCUMENT_STORAGE_ROOT_REQUIRE_MOUNT: "true"
     ports:
-      - "127.0.0.1:3001:3000"
+      - "3001:3000"
     volumes:
       - document_data:/app/data/pac-documents
       - document_templates_data:/app/data/document-templates
