@@ -7,6 +7,22 @@
 
 .heading {
   align-items: center;
+  margin-bottom: 12px !important;
+}
+.heading :global(h1) {
+  font-size: 20px !important;
+  margin-bottom: 0 !important;
+}
+.heading p {
+  font-size: 12px;
+}
+
+.spinning {
+  animation: planification-sav-spin 0.9s linear infinite;
+}
+@keyframes planification-sav-spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
 }
 
 .prototypeBadge {
@@ -33,18 +49,18 @@
 .statsGrid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 16px;
+  gap: 10px;
 }
 
 .statCard {
   display: flex;
   align-items: center;
-  gap: 14px;
+  gap: 10px;
   min-width: 0;
   border: 1px solid var(--border);
-  border-radius: 11px;
+  border-radius: 10px;
   background: var(--surface);
-  padding: 18px;
+  padding: 10px 12px;
   box-shadow: 0 5px 10px rgb(0 0 0 / 2%);
 }
 
@@ -55,7 +71,7 @@
 
 .statCard strong {
   overflow: hidden;
-  font-size: 13px;
+  font-size: 11px;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -63,14 +79,14 @@
 .statCard small {
   overflow: hidden;
   color: var(--muted);
-  font-size: 10px;
+  font-size: 9px;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
 .statValue {
   color: var(--heading);
-  font-size: 23px;
+  font-size: 17px;
   font-weight: 800;
   line-height: 1.1;
 }
@@ -85,9 +101,9 @@
 }
 
 .statIcon {
-  width: 45px;
-  height: 45px;
-  border-radius: 11px;
+  width: 34px;
+  height: 34px;
+  border-radius: 9px;
 }
 
 .statIcon.orange { color: var(--planning-orange); background: rgb(255 129 16 / 11%); }
@@ -95,8 +111,8 @@
 .statIcon.green { color: var(--planning-green); background: var(--success-subtle); }
 
 .filterCard {
-  display: grid;
-  grid-template-columns: minmax(180px, 1.35fr) minmax(170px, 1.1fr) repeat(5, minmax(112px, .82fr)) 36px;
+  display: flex;
+  flex-wrap: wrap;
   align-items: end;
   gap: 10px;
   margin-top: 16px;
@@ -108,9 +124,23 @@
 
 .filterHeading {
   display: flex;
+  flex: 1 1 200px;
   align-items: center;
   gap: 10px;
   align-self: center;
+  border: none;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.filterChevron {
+  flex: none;
+  margin-left: auto;
+  color: var(--muted);
+  transition: transform 160ms ease;
 }
 
 .filterHeading > span {
@@ -137,6 +167,7 @@
 
 .searchField {
   display: flex;
+  flex: 1 1 170px;
   min-height: 38px;
   align-items: center;
   gap: 7px;
@@ -165,6 +196,7 @@
 
 .filterSelect {
   display: grid;
+  flex: 1 1 100px;
   min-width: 0;
   gap: 4px;
 }
@@ -192,6 +224,7 @@
 
 .resetButton {
   display: grid;
+  flex: 0 0 36px;
   width: 36px;
   height: 38px;
   place-items: center;
@@ -325,10 +358,12 @@
 .legendSav { background: var(--planning-orange); }
 .legendUrgent { background: var(--planning-red); }
 .legendIntervention { background: var(--primary); }
+.legendClosed { background: var(--planning-green); }
+.legendSuggestion { background: #8b5cf6; }
 
 .mapFrame {
   position: relative;
-  height: 555px;
+  height: 760px;
 }
 
 .map,
@@ -402,18 +437,81 @@
   padding: 12px;
 }
 
-.suggestion {
-  display: grid;
-  grid-template-columns: 22px minmax(0, 1fr) auto;
+.suggestionGroup {
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  overflow: hidden;
+}
+
+.suggestionGroupHeader {
+  display: flex;
   align-items: center;
   gap: 9px;
+  width: 100%;
+  border: none;
+  background: var(--surface);
+  padding: 10px 11px;
+  text-align: left;
+}
+
+.suggestionGroupHeader:hover {
+  background: var(--primary-subtle);
+}
+
+.suggestionGroupInfo {
+  display: grid;
+  min-width: 0;
+  gap: 1px;
+  flex: 1;
+}
+
+.suggestionGroupInfo strong {
+  overflow: hidden;
+  color: var(--heading);
+  font-size: 11px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.suggestionGroupInfo small {
+  color: var(--muted);
+  font-size: 9px;
+}
+
+.suggestionGroupCount {
+  display: grid;
+  flex: none;
+  min-width: 20px;
+  height: 20px;
+  place-items: center;
+  border-radius: 999px;
+  padding: 0 6px;
+  color: var(--planning-green);
+  background: var(--success-subtle);
+  font-size: 10px;
+  font-weight: 800;
+}
+
+.suggestionGroupChevron {
+  flex: none;
+  color: var(--muted);
+  transition: transform 160ms ease;
+}
+
+.suggestionGroupBody {
+  display: grid;
+  gap: 8px;
+  border-top: 1px solid var(--border);
+  padding: 8px;
+}
+
+.suggestion {
+  position: relative;
   width: 100%;
   border: 1px solid var(--border);
   border-radius: 9px;
   color: var(--muted);
   background: var(--surface);
-  padding: 11px;
-  text-align: left;
   transition: border-color 160ms ease, background 160ms ease, transform 160ms ease;
 }
 
@@ -427,6 +525,114 @@
 .suggestionActive {
   box-shadow: 0 0 0 2px rgb(49 106 255 / 8%);
 }
+
+.suggestionMain {
+  display: grid;
+  grid-template-columns: 22px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 9px;
+  width: 100%;
+  border: none;
+  background: none;
+  color: inherit;
+  padding: 11px 32px 11px 11px;
+  text-align: left;
+}
+
+.suggestionDismiss {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 22px;
+  height: 22px;
+  display: grid;
+  place-items: center;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--muted);
+}
+.suggestionDismiss:hover { background: rgb(255 64 28 / 10%); color: var(--planning-red); }
+
+.routeStopRow {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 9px 11px;
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  background: var(--surface);
+}
+
+.routeStopNumber {
+  display: grid;
+  flex: none;
+  width: 22px;
+  height: 22px;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--planning-green);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.routeStopContent {
+  display: grid;
+  min-width: 0;
+  gap: 1px;
+}
+
+.routeStopContent b {
+  overflow: hidden;
+  color: var(--heading);
+  font-size: 11px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.routeStopContent small {
+  color: var(--muted);
+  font-size: 9px;
+}
+
+.routeStopLeg {
+  color: var(--planning-green) !important;
+  font-weight: 700;
+}
+
+.routeStopRemove {
+  display: grid;
+  flex: none;
+  width: 22px;
+  height: 22px;
+  place-items: center;
+  border: none;
+  border-radius: 6px;
+  color: var(--muted);
+  background: transparent;
+}
+.routeStopRemove:hover { background: rgb(255 64 28 / 10%); color: var(--planning-red); }
+
+.routeSummary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin: 4px 12px 0;
+  padding: 10px 12px;
+  border-radius: 9px;
+  color: var(--heading);
+  background: var(--primary-subtle);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.routeActions {
+  display: flex;
+  gap: 8px;
+  padding: 10px 12px 12px;
+}
+.routeActions .button { flex: 1; }
 
 .suggestionRoute {
   display: grid;
@@ -597,18 +803,50 @@
 
 .calendarShell :global(.fc .fc-event) {
   overflow: hidden;
-  border-radius: 5px;
-  padding: 2px 3px;
+  border-radius: 7px;
+  padding: 7px 9px;
+  margin-bottom: 3px;
   box-shadow: 0 2px 5px rgb(16 38 76 / 12%);
-  font-size: 8px;
-  font-weight: 700;
+  font-size: 12px;
+  font-weight: 400;
   cursor: pointer;
+}
+
+.calendarEventCard {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  line-height: 1.35;
+}
+.calendarEventTime {
+  font-size: 11px;
+  font-weight: 600;
+  opacity: 0.8;
+}
+.calendarEventCard strong {
+  font-size: 13.5px;
+  font-weight: 600;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+.calendarEventCard small {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  font-weight: 400;
+  opacity: 0.85;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+.calendarEventCard small svg {
+  flex: none;
+  opacity: 0.8;
 }
 
 .calendarInterventionEvent {
   border-color: transparent !important;
-  color: #fff !important;
-  background: var(--primary) !important;
+  color: #1a1d29 !important;
 }
 
 .calendarSavEvent {
@@ -621,6 +859,12 @@
   border-color: transparent !important;
   color: #fff !important;
   background: var(--planning-red) !important;
+}
+
+.calendarClosedEvent {
+  border-color: transparent !important;
+  color: #fff !important;
+  background: var(--planning-green) !important;
 }
 
 .calendarShell :global(.fc .fc-daygrid-day.fc-day-today),
@@ -643,12 +887,14 @@
   padding: 12px 15px;
   text-align: left;
   vertical-align: middle;
+  font-family: var(--font-jakarta), sans-serif;
 }
 
 .table th {
   color: var(--muted);
   background: color-mix(in srgb, var(--surface) 84%, var(--background));
-  font-size: 9px;
+  font-size: 10px;
+  font-weight: 800;
   letter-spacing: .06em;
   text-transform: uppercase;
   white-space: nowrap;
@@ -669,11 +915,12 @@
 .table td {
   min-width: 120px;
   color: var(--text);
-  font-size: 10px;
+  font-size: 12px;
 }
 
 .table td:nth-child(2),
-.table td:nth-child(3) {
+.table td:nth-child(3),
+.table td:nth-child(7) {
   min-width: 185px;
 }
 
@@ -684,12 +931,14 @@
 
 .table td strong {
   color: var(--heading);
-  font-size: 10px;
+  font-size: 12px;
+  font-weight: 750;
 }
 
 .table td small {
   color: var(--muted);
-  font-size: 8px;
+  font-size: 10px;
+  line-height: 1.4;
 }
 
 .table td:last-child {
@@ -715,6 +964,96 @@
   background: var(--primary-subtle);
 }
 
+.rowActions {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.rowMenuWrap {
+  position: relative;
+}
+
+.rowMenu {
+  position: absolute;
+  top: calc(100% + 7px);
+  right: 0;
+  z-index: 30;
+  display: grid;
+  width: 205px;
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  background: var(--surface);
+  padding: 5px;
+  box-shadow: 0 14px 34px rgb(var(--shadow-overlay) / 18%);
+}
+
+.rowMenu button {
+  border: 0;
+  border-radius: 6px;
+  color: var(--heading);
+  background: transparent;
+  padding: 8px 9px;
+  text-align: left;
+  font-size: 10px;
+}
+
+.rowMenu button:hover:not(:disabled) {
+  color: var(--primary);
+  background: var(--primary-subtle);
+}
+
+.rowMenu button:disabled {
+  cursor: not-allowed;
+  color: var(--muted);
+  opacity: .55;
+}
+
+.listHeaderActions,
+.quickFilters {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.listHeaderActions > .resultPill,
+.quickFilters button {
+  height: 28px;
+  min-height: 28px;
+  box-sizing: border-box;
+}
+
+.compactHeaderButton {
+  height: 28px !important;
+  min-height: 28px !important;
+  padding: 5px 9px;
+  font-size: 9px;
+  font-weight: 800;
+}
+
+.quickFilters {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--control-bg);
+  padding: 3px;
+}
+
+.quickFilters button {
+  border: 0;
+  border-radius: 6px;
+  color: var(--muted);
+  background: transparent;
+  padding: 5px 8px;
+  font-size: 9px;
+  font-weight: 800;
+}
+
+.quickFilters button:hover,
+.quickFilters button.quickFilterActive {
+  color: #fff;
+  background: var(--primary);
+}
+
 .priorityBadge,
 .statusBadge,
 .kindBadge {
@@ -724,7 +1063,7 @@
   gap: 4px;
   border-radius: 999px;
   padding: 4px 8px;
-  font-size: 8px;
+  font-size: 10px;
   font-weight: 800;
   white-space: nowrap;
 }
@@ -733,6 +1072,27 @@
 .priorityNormale { color: #2955c8; background: var(--primary-subtle); }
 .priorityHaute { color: #9a5800; background: var(--warning-subtle); }
 .priorityUrgente { color: #bc2e12; background: var(--danger-subtle); }
+.prioritySelect {
+  min-width: 92px;
+  border: 1px solid currentColor;
+  border-radius: 999px;
+  padding: 5px 22px 5px 9px;
+  font: 800 11px/1 var(--font-jakarta), sans-serif;
+  cursor: pointer;
+}
+
+.priorityEditor {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.priorityEditor span { white-space: nowrap; }
+
+.rowMenuDanger { color: #c0392b !important; }
 .statusSuccess { color: #12805a; background: var(--success-subtle); }
 .statusInfo { color: #087ca8; background: #e9f9ff; }
 .statusWarning { color: #9a5800; background: var(--warning-subtle); }
@@ -818,6 +1178,7 @@
   overflow: hidden;
   color: var(--text);
   background: var(--surface);
+  font-family: var(--font-jakarta), sans-serif;
   box-shadow: -16px 0 60px rgb(8 18 35 / 22%);
   animation: drawerIn 220ms ease-out;
 }
@@ -839,7 +1200,7 @@
 .drawerHeader p {
   margin: 0;
   color: var(--muted);
-  font-size: 10px;
+  font-size: 11px;
 }
 
 .drawerHeader > button {
@@ -902,7 +1263,305 @@
 
 .detailSection h3 {
   margin-bottom: 12px;
+  font-size: 13px;
+}
+
+.sectionHeadingRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.sectionHeadingRow h3 {
+  margin-bottom: 12px;
+}
+
+.closedMiniLabel,
+.preparedPill,
+.historyCount {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  border-radius: 999px;
+  color: var(--planning-green);
+  background: var(--success-subtle);
+  padding: 4px 7px;
+  font-size: 10px;
+  font-weight: 800;
+}
+
+.historyCount {
+  color: var(--muted);
+  background: var(--control-bg);
+  font-weight: 600;
+}
+
+.drawerActions {
+  display: grid;
+  gap: 6px;
+}
+
+.drawerAction {
+  display: grid;
+  grid-template-columns: 22px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 7px;
+  width: 100%;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--heading);
+  background: var(--surface);
+  padding: 9px 10px;
+  text-align: left;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.drawerAction svg:first-child {
+  color: var(--muted);
+}
+
+.drawerAction:hover:not(:disabled) {
+  border-color: var(--primary);
+  color: var(--primary);
+  background: var(--primary-subtle);
+}
+
+.drawerActionPrimary {
+  border-color: rgb(49 106 255 / 20%);
+  color: var(--primary);
+  background: var(--primary-subtle);
+}
+
+.drawerAction:disabled {
+  cursor: not-allowed;
+  color: var(--muted);
+  background: var(--control-bg);
+  opacity: .7;
+}
+
+.planningSummary {
+  margin: 0;
+  color: var(--heading);
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.planningNote {
+  display: block;
+  margin-top: 5px;
+  color: var(--muted);
   font-size: 11px;
+}
+
+.historyList {
+  display: grid;
+  gap: 11px;
+}
+
+.historyEntry {
+  display: grid;
+  grid-template-columns: 27px minmax(0, 1fr);
+  gap: 8px;
+  align-items: start;
+}
+
+.historyIcon {
+  display: grid;
+  width: 27px;
+  height: 27px;
+  place-items: center;
+  border-radius: 8px;
+}
+
+.historyIcon.historynote { color: var(--primary); background: var(--primary-subtle); }
+.historyIcon.historystatus { color: #9a5800; background: var(--warning-subtle); }
+.historyIcon.historyclosure { color: var(--planning-green); background: var(--success-subtle); }
+.historyIcon.historyplanning { color: #7b43a6; background: #f5ecfb; }
+
+.historyEntry strong,
+.historyEntry small,
+.historyEntry p {
+  display: block;
+}
+
+.historyEntry strong {
+  color: var(--heading);
+  font-size: 12px;
+}
+
+.historyEntry p {
+  margin: 2px 0 0;
+  color: var(--text);
+  font-size: 11px;
+  line-height: 1.45;
+}
+
+.historyEntry small {
+  margin-top: 3px;
+  color: var(--muted);
+  font-size: 10px;
+}
+
+.historyEmpty {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.workflowModalLayer {
+  position: fixed;
+  inset: 0;
+  z-index: 980;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  background: rgb(8 18 35 / 42%);
+  animation: fadeIn 160ms ease-out;
+}
+
+.workflowModal {
+  width: min(510px, 100%);
+  max-height: min(720px, calc(100vh - 40px));
+  overflow: auto;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface);
+  box-shadow: 0 24px 70px rgb(var(--shadow-overlay) / 26%);
+  animation: gx-modal-in .18s ease-out;
+}
+
+.workflowModalHeader,
+.workflowModalFooter {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  border-bottom: 1px solid var(--border);
+  padding: 17px 19px 14px;
+}
+
+.workflowModalHeader h2 {
+  margin: 0;
+  color: var(--heading);
+  font-size: 17px;
+}
+
+.workflowModalHeader .eyebrow {
+  margin-bottom: 3px;
+}
+
+.workflowModalHeader > button {
+  display: grid;
+  width: 30px;
+  height: 30px;
+  place-items: center;
+  border: 0;
+  border-radius: 7px;
+  color: var(--muted);
+  background: var(--control-bg);
+}
+
+.workflowModalBody {
+  display: grid;
+  gap: 14px;
+  padding: 19px;
+}
+
+.workflowModalFooter {
+  align-items: center;
+  justify-content: flex-end;
+  border-top: 1px solid var(--border);
+  border-bottom: 0;
+  padding: 13px 19px;
+}
+
+.modalField {
+  display: grid;
+  gap: 5px;
+  color: var(--heading);
+  font-size: 10px;
+  font-weight: 800;
+}
+
+.modalField small {
+  color: var(--muted);
+  font-weight: 500;
+}
+
+.formHint {
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 500;
+}
+
+.docgenEventRow {
+  display: flex;
+  align-items: flex-end;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.docgenEventRow .modalField {
+  flex: 1;
+}
+
+.modalField input,
+.modalField select,
+.modalField textarea {
+  width: 100%;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  outline: 0;
+  color: var(--heading);
+  background: var(--surface);
+  padding: 9px 10px;
+  font-size: 11px;
+  font-weight: 500;
+}
+
+.modalField textarea {
+  resize: vertical;
+}
+
+.modalField input:focus,
+.modalField select:focus,
+.modalField textarea:focus {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px rgb(49 106 255 / 10%);
+}
+
+.closeConfirmNotice {
+  display: flex;
+  gap: 8px;
+  border-radius: 8px;
+  color: #12805a;
+  background: var(--success-subtle);
+  padding: 10px;
+}
+
+.closeConfirmNotice svg {
+  flex: 0 0 auto;
+  margin-top: 1px;
+}
+
+.closeConfirmNotice p {
+  margin: 0;
+  font-size: 9px;
+  line-height: 1.45;
+}
+
+.planningFormGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.modalFieldWide {
+  grid-column: span 2;
 }
 
 .detailRow {
@@ -934,13 +1593,13 @@
 
 .detailRow small {
   color: var(--muted);
-  font-size: 8px;
+  font-size: 10px;
   text-transform: uppercase;
 }
 
 .detailRow strong {
   overflow-wrap: anywhere;
-  font-size: 10px;
+  font-size: 13px;
 }
 
 .description {
@@ -949,7 +1608,8 @@
   color: var(--text);
   background: var(--control-bg);
   padding: 11px;
-  font-size: 10px;
+  font-size: 13px;
+  line-height: 1.5;
 }
 
 .drawerFooter {
@@ -964,7 +1624,7 @@
 .drawerFooter small {
   flex-basis: 100%;
   color: var(--muted);
-  font-size: 8px;
+  font-size: 10px;
   text-align: right;
 }
 
@@ -991,6 +1651,22 @@
   background: transparent !important;
 }
 
+.mapMarkerHq {
+  position: relative;
+  display: grid;
+  width: 34px;
+  height: 34px;
+  place-items: center;
+  border: 3px solid #fff;
+  border-radius: 50%;
+  background: var(--heading);
+  font-size: 16px;
+  box-shadow: 0 5px 13px rgb(13 29 55 / 40%), 0 0 0 3px rgb(12 36 60 / 20%);
+}
+.mapMarkerHq .markerRouteBadge {
+  transform: none;
+}
+
 .mapMarker {
   position: relative;
   display: grid;
@@ -1013,9 +1689,63 @@
 .markerSav { background: var(--planning-orange); }
 .markerUrgent { background: var(--planning-red); }
 .markerIntervention { background: var(--primary); }
+.markerClosed {
+  background: #16a34a;
+  border-color: #ecfdf5;
+  outline: 3px solid rgb(22 163 74 / 72%);
+  box-shadow: 0 0 0 6px rgb(22 163 74 / 22%), 0 5px 13px rgb(13 29 55 / 34%);
+}
+
+.markerClosed span {
+  font-size: 16px;
+  font-weight: 900;
+}
 
 .markerHighlighted .mapMarker {
   animation: markerPulse 1.25s ease-in-out infinite;
+}
+
+.markerInRoute .mapMarker {
+  outline: 3px solid #22b07e;
+  outline-offset: 2px;
+}
+
+.markerSuggestionBadge {
+  position: absolute;
+  top: -8px;
+  left: -8px;
+  width: 17px;
+  height: 17px;
+  display: grid;
+  place-items: center;
+  border: 2px solid #fff;
+  border-radius: 50%;
+  background: #8b5cf6;
+  color: #fff;
+  font: 800 9px/1 var(--font-jakarta), sans-serif;
+  box-shadow: 0 2px 5px rgb(13 29 55 / 30%);
+  transform: rotate(45deg);
+}
+
+.mapMarkerHq .markerSuggestionBadge {
+  transform: none;
+}
+
+.markerRouteBadge {
+  position: absolute;
+  top: -8px;
+  right: -8px;
+  width: 18px;
+  height: 18px;
+  display: grid;
+  place-items: center;
+  border: 2px solid #fff;
+  border-radius: 50%;
+  background: #22b07e;
+  color: #fff;
+  font: 800 9px/1 var(--font-jakarta), sans-serif;
+  box-shadow: 0 2px 5px rgb(13 29 55 / 30%);
+  transform: rotate(45deg);
 }
 
 .mapPopup {
@@ -1091,20 +1821,9 @@
 }
 
 @media (max-width: 1280px) {
-  .filterCard {
-    grid-template-columns: repeat(4, minmax(130px, 1fr));
-  }
-
-  .filterHeading {
-    grid-column: span 2;
-  }
-
+  .filterHeading,
   .searchField {
-    grid-column: span 2;
-  }
-
-  .resetButton {
-    width: 100%;
+    flex-basis: 100%;
   }
 }
 
@@ -1131,13 +1850,8 @@
     grid-template-columns: 1fr;
   }
 
-  .filterCard {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  .filterHeading,
-  .searchField {
-    grid-column: span 2;
+  .filterSelect {
+    flex-basis: calc(50% - 5px);
   }
 
   .viewBar {
@@ -1157,6 +1871,24 @@
   .viewTabs button {
     justify-content: center;
     padding-inline: 8px;
+  }
+
+  .listHeaderActions {
+    width: 100%;
+    flex-wrap: wrap;
+    justify-content: space-between;
+  }
+
+  .workflowModalLayer {
+    padding: 12px;
+  }
+
+  .planningFormGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .modalFieldWide {
+    grid-column: auto;
   }
 
   .mapHeader,
@@ -1197,16 +1929,176 @@
 }
 
 @media (max-width: 460px) {
-  .filterCard {
-    grid-template-columns: 1fr;
-  }
-
-  .filterHeading,
-  .searchField {
-    grid-column: auto;
+  .filterSelect {
+    flex-basis: 100%;
   }
 
   .prototypeBadge {
     align-self: flex-start;
+  }
+}
+
+.kanbanBoard {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+  padding: 16px;
+}
+
+.kanbanColumn {
+  display: flex;
+  min-height: 220px;
+  flex-direction: column;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--background);
+  transition: border-color 150ms ease, background 150ms ease;
+}
+
+.kanbanColumnDragOver {
+  border-color: var(--primary);
+  background: var(--primary-subtle);
+}
+
+.kanbanColumnnonplanned { border-top: 3px solid var(--planning-orange); }
+.kanbanColumnnonplanned .kanbanColumnHeader { background: rgb(255 129 16 / 7%); }
+.kanbanColumnplanned { border-top: 3px solid var(--primary); }
+.kanbanColumnplanned .kanbanColumnHeader { background: var(--primary-subtle); }
+.kanbanColumnclosed { border-top: 3px solid var(--planning-green); }
+.kanbanColumnclosed .kanbanColumnHeader { background: var(--success-subtle); }
+
+.kanbanColumnHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid var(--border);
+  padding: 11px 13px;
+}
+
+.kanbanColumnHeader strong {
+  color: var(--heading);
+  font-size: 12px;
+}
+
+.kanbanColumnHeader span {
+  display: grid;
+  min-width: 21px;
+  height: 21px;
+  place-items: center;
+  border-radius: 999px;
+  background: var(--control-bg);
+  padding: 0 6px;
+  color: var(--muted);
+  font-size: 10.5px;
+  font-weight: 700;
+}
+
+.kanbanColumnBody {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 9px;
+  padding: 10px;
+}
+
+.kanbanCard {
+  display: grid;
+  gap: 4px;
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  background: var(--surface);
+  padding: 10px 11px;
+  cursor: grab;
+  transition: box-shadow 150ms ease, opacity 150ms ease;
+}
+
+.kanbanCard:hover {
+  box-shadow: 0 6px 16px rgb(var(--shadow-overlay) / 10%);
+}
+
+.kanbanCard:active {
+  cursor: grabbing;
+}
+
+.kanbanCardDragging {
+  opacity: 0.45;
+}
+
+.kanbanCardHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.kanbanCardHeader span:first-child {
+  color: var(--muted);
+  font-size: 9px;
+  font-weight: 700;
+}
+
+.kanbanCardHeaderActions {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.kanbanCardMenuButton {
+  display: grid;
+  width: 22px;
+  height: 22px;
+  place-items: center;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--muted);
+  background: var(--surface);
+}
+
+.kanbanCardMenuButton:hover {
+  border-color: var(--primary);
+  color: var(--primary);
+  background: var(--primary-subtle);
+}
+
+.kanbanCard strong {
+  overflow: hidden;
+  color: var(--heading);
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.kanbanCard > small {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 10.5px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.kanbanCardMeta svg {
+  flex: none;
+}
+
+.priorityDot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.kanbanEmpty {
+  margin: 0;
+  padding: 20px 10px;
+  color: var(--muted);
+  font-size: 11px;
+  text-align: center;
+}
+
+@media (max-width: 900px) {
+  .kanbanBoard {
+    grid-template-columns: 1fr;
   }
 }

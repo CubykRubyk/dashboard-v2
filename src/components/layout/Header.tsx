@@ -4,6 +4,7 @@ import { useState } from "react";
 import { ChevronDown, LogOut, Monitor, Moon, Search, Sun } from "lucide-react";
 import type { SessionUser } from "@/lib/auth/session";
 import { logout } from "@/app/(auth)/login/actions";
+import { NotificationBell } from "./NotificationBell";
 
 type ThemePreference = "light" | "dark" | "auto";
 
@@ -13,12 +14,14 @@ export function Header({
   onThemeChange,
   onToggleSidebar,
   onOpenMobile,
+  onOpenSearch,
 }: {
   user: SessionUser;
   theme: ThemePreference;
   onThemeChange: (theme: ThemePreference) => void;
   onToggleSidebar: () => void;
   onOpenMobile: () => void;
+  onOpenSearch: () => void;
 }) {
   const [themeOpen, setThemeOpen] = useState(false);
   const [userOpen, setUserOpen] = useState(false);
@@ -29,6 +32,8 @@ export function Header({
       <button
         className="app-toggler"
         aria-label="Afficher ou réduire le menu"
+        data-tooltip="Afficher ou réduire le menu"
+        data-tooltip-placement="bottom"
         onClick={() => {
           if (window.matchMedia("(max-width: 1199px)").matches) onOpenMobile();
           else onToggleSidebar();
@@ -38,16 +43,19 @@ export function Header({
         <span />
         <span />
       </button>
-      <div className="header-search" aria-label="Recherche bientôt disponible">
+      <button type="button" className="header-search" onClick={onOpenSearch}>
         <Search aria-hidden size={17} />
         <span>Rechercher...</span>
         <kbd>⌘ K</kbd>
-      </div>
+      </button>
       <div className="header-actions">
+        <NotificationBell />
         <div className="theme-menu">
           <button
             className="icon-button"
             aria-label="Changer le thème"
+            data-tooltip="Changer le thème"
+            data-tooltip-placement="bottom"
             aria-expanded={themeOpen}
             onClick={() => setThemeOpen((open) => !open)}
           >

@@ -21,3 +21,15 @@ export function canGenerateDocuments(role: UserRole | null | undefined) {
 export function canViewAuditLog(role: UserRole | null | undefined) {
   return role === "ADMIN";
 }
+
+export function canViewSav(role: UserRole | null | undefined) {
+  return role === "ADMIN" || role === "OPERATOR" || role === "VIEWER";
+}
+
+export function canManageSav(role: UserRole | null | undefined) {
+  return role === "ADMIN" || role === "OPERATOR";
+}
+
+export function canManageTeams(role: UserRole | null | undefined) {
+  return role === "ADMIN";
+}

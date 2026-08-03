@@ -1,7 +1,7 @@
 import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "@/generated/prisma/client";
 
-const PRISMA_CLIENT_SIGNATURE = "20260802084008_add_generated_document_client_label";
+const PRISMA_CLIENT_SIGNATURE = "20260802170359_add_dolibarr_last_sync_error";
 
 const globalForPrisma = globalThis as unknown as {
   prisma?: PrismaClient;

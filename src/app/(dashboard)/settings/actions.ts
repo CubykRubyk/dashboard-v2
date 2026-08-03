@@ -11,6 +11,10 @@ const tagSchema = z.object({
   color: z.string().regex(/^#[0-9a-fA-F]{6}$/),
 });
 
+const teamSchema = z.object({
+  name: z.string().trim().min(1, "Le nom est requis.").max(80),
+});
+
 const issuerSchema = z.object({
   name: z.string().trim().min(1, "Le nom est requis.").max(160),
   address: z.string().trim().max(500),
@@ -195,4 +199,62 @@ export async function toggleDocumentIssuer(id: string, active: boolean) {
     }),
   ]);
   revalidatePath("/settings");
+}
+
+export async function createTeam(formData: FormData) {
+  const user = await requireAdmin();
+  const data = teamSchema.parse(Object.fromEntries(formData));
+  const team = await prisma.team.create({ data });
+  await prisma.auditLog.create({
+    data: { userId: user.id, action: "TEAM_CREATE", entityType: "Team", entityId: team.id, metadata: { name: team.name } },
+  });
+  revalidatePath("/settings");
+  revalidatePath("/planification-sav");
+}
+
+export async function updateTeam(id: string, formData: FormData) {
+  const user = await requireAdmin();
+  const data = teamSchema.parse(Object.fromEntries(formData));
+  await prisma.team.update({ where: { id }, data });
+  await prisma.auditLog.create({
+    data: { userId: user.id, action: "TEAM_UPDATE", entityType: "Team", entityId: id, metadata: { name: data.name } },
+  });
+  revalidatePath("/settings");
+  revalidatePath("/planification-sav");
+}
+
+export async function toggleTeam(id: string, active: boolean) {
+  const user = await requireAdmin();
+  await prisma.team.update({ where: { id }, data: { active } });
+  await prisma.auditLog.create({
+    data: {
+      userId: user.id,
+      action: active ? "TEAM_ENABLE" : "TEAM_DISABLE",
+      entityType: "Team",
+      entityId: id,
+      metadata: { active },
+    },
+  });
+  revalidatePath("/settings");
+  revalidatePath("/planification-sav");
+}
+
+export async function deleteTeam(id: string) {
+  const user = await requireAdmin();
+  const team = await prisma.team.findUnique({
+    where: { id },
+    select: { name: true, _count: { select: { savTickets: true } } },
+  });
+  if (!team) throw new Error("Équipe introuvable.");
+  if (team._count.savTickets > 0) {
+    throw new Error("Cette équipe est assignée à des bilets SAV et ne peut pas être supprimée.");
+  }
+  await prisma.$transaction([
+    prisma.team.delete({ where: { id } }),
+    prisma.auditLog.create({
+      data: { userId: user.id, action: "TEAM_DELETE", entityType: "Team", entityId: id, metadata: { name: team.name } },
+    }),
+  ]);
+  revalidatePath("/settings");
+  revalidatePath("/planification-sav");
 }

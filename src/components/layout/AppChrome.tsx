@@ -2,8 +2,10 @@
 
 import { useEffect, useState } from "react";
 import type { SessionUser } from "@/lib/auth/session";
+import { CommandPalette } from "./CommandPalette";
 import { Header } from "./Header";
 import { Sidebar } from "./Sidebar";
+import { ToastProvider } from "./ToastProvider";
 
 type ThemePreference = "light" | "dark" | "auto";
 
@@ -28,6 +30,24 @@ export function AppChrome({
   const [theme, setTheme] = useState<ThemePreference>("auto");
   const [compact, setCompact] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [searchKey, setSearchKey] = useState(0);
+
+  const openSearch = () => {
+    setSearchKey((key) => key + 1);
+    setSearchOpen(true);
+  };
+
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k") {
+        event.preventDefault();
+        openSearch();
+      }
+    };
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, []);
 
   useEffect(() => {
     const savedTheme = (localStorage.getItem("theme") || "auto") as ThemePreference;
@@ -64,23 +84,27 @@ export function AppChrome({
   };
 
   return (
-    <div className={`app-shell${compact ? " sidebar-compact" : ""}${mobileOpen ? " sidebar-mobile-open" : ""}`}>
-      <Sidebar onNavigate={() => setMobileOpen(false)} role={user.role} />
-      <button
-        className="sidebar-overlay"
-        aria-label="Fermer le menu"
-        onClick={() => setMobileOpen(false)}
-      />
-      <div className="app-main">
-        <Header
-          user={user}
-          theme={theme}
-          onThemeChange={changeTheme}
-          onToggleSidebar={toggleCompact}
-          onOpenMobile={() => setMobileOpen(true)}
+    <ToastProvider>
+      <div className={`app-shell${compact ? " sidebar-compact" : ""}${mobileOpen ? " sidebar-mobile-open" : ""}`}>
+        <Sidebar onNavigate={() => setMobileOpen(false)} role={user.role} />
+        <button
+          className="sidebar-overlay"
+          aria-label="Fermer le menu"
+          onClick={() => setMobileOpen(false)}
         />
-        <main className="page-content">{children}</main>
+        <div className="app-main">
+          <Header
+            user={user}
+            theme={theme}
+            onThemeChange={changeTheme}
+            onToggleSidebar={toggleCompact}
+            onOpenMobile={() => setMobileOpen(true)}
+            onOpenSearch={openSearch}
+          />
+          <main className="page-content">{children}</main>
+        </div>
+        <CommandPalette key={searchKey} open={searchOpen} onClose={() => setSearchOpen(false)} />
       </div>
-    </div>
+    </ToastProvider>
   );
 }

@@ -1,9 +1,10 @@
 import Link from "next/link";
 import Image from "next/image";
-import { Building2, CirclePlus, History, Link2, Pencil, Power, PowerOff, Tags } from "lucide-react";
+import { Building2, CirclePlus, History, Link2, Pencil, Power, PowerOff, Tags, UsersRound } from "lucide-react";
 import { DismissibleDetails } from "@/components/ui/DismissibleDetails";
 import { GxonModal } from "@/components/ui/GxonModal";
 import { DeleteTagButton } from "@/components/settings/DeleteTagButton";
+import { DeleteTeamButton } from "@/components/settings/DeleteTeamButton";
 import { DolibarrSettingsForm } from "@/components/settings/DolibarrSettingsForm";
 import { AuditLogSection } from "@/components/settings/AuditLogSection";
 import { getSession } from "@/lib/auth/session";
@@ -12,11 +13,15 @@ import { prisma } from "@/lib/prisma";
 import {
   createDocumentIssuer,
   createTag,
+  createTeam,
   deleteTag,
+  deleteTeam,
   toggleDocumentIssuer,
   toggleTag,
+  toggleTeam,
   updateDocumentIssuer,
   updateTag,
+  updateTeam,
 } from "./actions";
 
 export const dynamic = "force-dynamic";
@@ -33,9 +38,9 @@ export default async function SettingsPage({
   const resolvedSearchParams = await searchParams;
   const tab = resolvedSearchParams.tab;
   const user = await getSession();
-  const requestedTab = tab === "tags" || tab === "issuers" || tab === "journal" ? tab : "dolibarr";
+  const requestedTab = tab === "tags" || tab === "issuers" || tab === "teams" || tab === "journal" ? tab : "dolibarr";
   const activeTab = requestedTab === "journal" && !canViewAuditLog(user?.role) ? "dolibarr" : requestedTab;
-  const [tags, issuers, settings] = await Promise.all([
+  const [tags, issuers, teams, settings] = await Promise.all([
     activeTab === "tags"
       ? prisma.tag.findMany({
           orderBy: [{ position: "asc" }, { name: "asc" }],
@@ -44,6 +49,12 @@ export default async function SettingsPage({
       : Promise.resolve([]),
     activeTab === "issuers"
       ? prisma.documentIssuer.findMany({ orderBy: [{ active: "desc" }, { name: "asc" }] })
+      : Promise.resolve([]),
+    activeTab === "teams"
+      ? prisma.team.findMany({
+          orderBy: [{ active: "desc" }, { name: "asc" }],
+          include: { _count: { select: { savTickets: true } } },
+        })
       : Promise.resolve([]),
     activeTab === "dolibarr"
       ? prisma.appSettings.findUnique({ where: { id: 1 } })
@@ -81,6 +92,13 @@ export default async function SettingsPage({
           aria-current={activeTab === "tags" ? "page" : undefined}
         >
           <Tags size={17} /> Tags
+        </Link>
+        <Link
+          href="/settings?tab=teams"
+          className={activeTab === "teams" ? "active" : ""}
+          aria-current={activeTab === "teams" ? "page" : undefined}
+        >
+          <UsersRound size={17} /> Équipes
         </Link>
         {canViewAuditLog(user?.role) && (
           <Link
@@ -176,6 +194,55 @@ export default async function SettingsPage({
       </section>
       )}
 
+      {activeTab === "teams" && (
+      <section className="card settings-section">
+        <div className="settings-heading">
+          <div className="settings-title">
+            <span className="settings-icon"><UsersRound size={20} /></span>
+            <div><h2>Équipes SAV</h2><p>Utilisées pour l’assignation des bilets SAV dans Planification &amp; SAV.</p></div>
+          </div>
+          <DismissibleDetails
+            summaryClassName="button button-primary"
+            summary={<><CirclePlus size={17} /> Ajouter une équipe</>}
+          >
+            <form action={createTeam} className="tag-form">
+              <label>Nom<input name="name" required placeholder="Ex. Équipe Nord" /></label>
+              <button className="button button-primary">Enregistrer</button>
+            </form>
+          </DismissibleDetails>
+        </div>
+
+        {teams.length === 0 ? (
+          <div className="settings-empty">Aucune équipe configurée.</div>
+        ) : (
+          <div className="tag-settings-list">
+            {teams.map((team) => (
+              <div className={`tag-settings-row${team.active ? "" : " inactive"}`} key={team.id}>
+                <strong>{team.name}</strong>
+                <span>{team._count.savTickets} bilet{team._count.savTickets > 1 ? "s" : ""}</span>
+                <div className="tag-settings-actions">
+                  <DismissibleDetails summaryClassName="mini-action" summary={<><Pencil size={14} /> Modifier</>}>
+                    <form action={updateTeam.bind(null, team.id)} className="tag-form tag-edit-form">
+                      <label>Nom<input name="name" required defaultValue={team.name} /></label>
+                      <button className="button button-primary button-small">Enregistrer</button>
+                    </form>
+                  </DismissibleDetails>
+                  <form action={toggleTeam.bind(null, team.id, !team.active)}>
+                    <button className={`status-button${team.active ? " active" : ""}`}>
+                      {team.active ? <><Power size={14} /> Actif</> : <><PowerOff size={14} /> Inactif</>}
+                    </button>
+                  </form>
+                  {team._count.savTickets === 0 && (
+                    <DeleteTeamButton action={deleteTeam.bind(null, team.id)} name={team.name} />
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </section>
+      )}
+
       {activeTab === "issuers" && (
         <section className="card settings-section">
           <div className="settings-heading">
@@ -197,9 +264,11 @@ export default async function SettingsPage({
                   <label>N° attestation fluides frigorigènes<input name="refrigerantAttestationNumber" /></label>
                   <label>ID détecteur de fuite<input name="leakDetectorId" /></label>
                   <label>Date de contrôle<input name="leakDetectorInspectionDate" type="date" /></label>
-                  <label>Logo<input name="logo" type="file" accept="image/png,image/jpeg" /></label>
-                  <label>Tampon<input name="stamp" type="file" accept="image/png,image/jpeg" /></label>
-                  <label>Signature<input name="signature" type="file" accept="image/png,image/jpeg" /></label>
+                  <div className="issuer-form-assets">
+                    <label>Logo<input name="logo" type="file" accept="image/png,image/jpeg" /></label>
+                    <label>Tampon<input name="stamp" type="file" accept="image/png,image/jpeg" /></label>
+                    <label>Signature<input name="signature" type="file" accept="image/png,image/jpeg" /></label>
+                  </div>
                   <button className="button button-primary">Enregistrer</button>
                 </form>
               </GxonModal>
@@ -249,9 +318,11 @@ export default async function SettingsPage({
                           <label>N° attestation fluides frigorigènes<input name="refrigerantAttestationNumber" defaultValue={issuer.refrigerantAttestationNumber} /></label>
                           <label>ID détecteur de fuite<input name="leakDetectorId" defaultValue={issuer.leakDetectorId} /></label>
                           <label>Date de contrôle<input name="leakDetectorInspectionDate" type="date" defaultValue={dateInputValue(issuer.leakDetectorInspectionDate)} /></label>
-                          <label>Logo<input name="logo" type="file" accept="image/png,image/jpeg" /></label>
-                          <label>Tampon<input name="stamp" type="file" accept="image/png,image/jpeg" /></label>
-                          <label>Signature<input name="signature" type="file" accept="image/png,image/jpeg" /></label>
+                          <div className="issuer-form-assets">
+                            <label>Logo<input name="logo" type="file" accept="image/png,image/jpeg" /><small>{issuer.logoData ? "Actuel : défini ✓" : "Aucun logo enregistré"}</small></label>
+                            <label>Tampon<input name="stamp" type="file" accept="image/png,image/jpeg" /><small>{issuer.stampData ? "Actuel : défini ✓" : "Aucun tampon enregistré"}</small></label>
+                            <label>Signature<input name="signature" type="file" accept="image/png,image/jpeg" /><small>{issuer.signatureData ? "Actuelle : définie ✓" : "Aucune signature enregistrée"}</small></label>
+                          </div>
                           <button className="button button-primary button-small">Enregistrer</button>
                         </form>
                       </GxonModal>

@@ -1,23 +1,102 @@
-import { Boxes, FileOutput, FileText, Link2 } from "lucide-react";
+import Link from "next/link";
+import {
+  CalendarDays,
+  FileOutput,
+  FileText,
+  History,
+  Link2,
+  Sparkles,
+  Wrench,
+} from "lucide-react";
 import { prisma } from "@/lib/prisma";
 
 export const dynamic = "force-dynamic";
 
+const dateTimeFormatter = new Intl.DateTimeFormat("fr-FR", {
+  day: "2-digit",
+  month: "2-digit",
+  hour: "2-digit",
+  minute: "2-digit",
+});
+
+function formatAction(action: string) {
+  return action
+    .toLowerCase()
+    .replaceAll("_", " ")
+    .replace(/^./, (char) => char.toUpperCase());
+}
+
+function startOfWeek(date: Date) {
+  const start = new Date(date);
+  start.setHours(0, 0, 0, 0);
+  start.setDate(start.getDate() - ((start.getDay() + 6) % 7));
+  return start;
+}
+
+function endOfWeek(date: Date) {
+  const end = startOfWeek(date);
+  end.setDate(end.getDate() + 7);
+  return end;
+}
+
+function startOfDay(date: Date) {
+  const start = new Date(date);
+  start.setHours(0, 0, 0, 0);
+  return start;
+}
+
+function endOfDay(date: Date) {
+  const end = startOfDay(date);
+  end.setDate(end.getDate() + 1);
+  return end;
+}
+
 export default async function DashboardPage() {
-  const [workSheets, activeMaterials, settings] = await Promise.all([
+  const now = new Date();
+  const weekStart = startOfWeek(now);
+  const weekEnd = endOfWeek(now);
+  const todayStart = startOfDay(now);
+  const todayEnd = endOfDay(now);
+
+  const [
+    workSheets,
+    generatedDocuments,
+    settings,
+    savOpen,
+    savClosedThisWeek,
+    interventionsThisWeek,
+    interventionsToday,
+    proximitySuggestionsActive,
+    recentActivity,
+  ] = await Promise.all([
     prisma.workSheet.count({ where: { archivedAt: null } }),
-    prisma.material.count({ where: { active: true, category: { active: true } } }),
+    prisma.generatedDocument.count(),
     prisma.appSettings.findUnique({ where: { id: 1 } }),
+    prisma.savTicket.count({ where: { status: "OUVERT" } }),
+    prisma.savTicket.count({ where: { status: "CLOTURE", closedAt: { gte: weekStart, lt: weekEnd } } }),
+    prisma.interventionPlanning.count({ where: { startAt: { gte: weekStart, lt: weekEnd } } }),
+    prisma.interventionPlanning.count({ where: { startAt: { gte: todayStart, lt: todayEnd } } }),
+    prisma.savProximitySuggestion.count({ where: { dismissed: false } }),
+    prisma.auditLog.findMany({
+      orderBy: { createdAt: "desc" },
+      take: 6,
+      include: { user: { select: { name: true } } },
+    }),
   ]);
+
   const dolibarrConfigured = Boolean(
     settings?.dolibarrUrl && settings.dolibarrApiKeyEncrypted,
   );
+
   const cards = [
     { label: "Fiches chantier", value: String(workSheets), note: "Fiches actives", icon: FileText, tone: "primary" },
-    { label: "Documents générés", value: "—", note: "Prochain module", icon: FileOutput, tone: "success" },
-    { label: "Matériel actif", value: String(activeMaterials), note: "Catalogue configurable", icon: Boxes, tone: "warning" },
-    { label: "Dolibarr", value: dolibarrConfigured ? "Configuré" : "Non configuré", note: "Connexion serveur à serveur", icon: Link2, tone: "info" },
+    { label: "Documents générés", value: String(generatedDocuments), note: "Total, tous modèles", icon: FileOutput, tone: "success" },
+    { label: "SAV à traiter", value: String(savOpen), note: `${savClosedThisWeek} clôturé${savClosedThisWeek > 1 ? "s" : ""} cette semaine`, icon: Wrench, tone: "warning" },
+    { label: "Interventions", value: String(interventionsThisWeek), note: `${interventionsToday} aujourd’hui`, icon: CalendarDays, tone: "info" },
+    { label: "Suggestions de proximité", value: String(proximitySuggestionsActive), note: "Rapprochements SAV/intervention actifs", icon: Sparkles, tone: "success" },
+    { label: "Dolibarr", value: dolibarrConfigured ? "Configuré" : "Non configuré", note: "Connexion serveur à serveur", icon: Link2, tone: "primary" },
   ];
+
   return (
     <>
       <div className="page-heading">
@@ -38,20 +117,28 @@ export default async function DashboardPage() {
       <section className="content-grid">
         <article className="card">
           <div className="card-header">
-            <div><p className="eyebrow">Étape actuelle</p><h2>Socle de l’application</h2></div>
-            <span className="badge badge-success">En cours</span>
+            <div><p className="eyebrow">Journal</p><h2>Activité récente</h2></div>
+            <Link href="/settings?tab=journal" className="badge badge-success">Voir tout</Link>
           </div>
           <div className="milestone-list">
-            <div className="milestone done"><span>1</span><div><strong>Projet séparé</strong><p>L’ancienne version reste intacte.</p></div></div>
-            <div className="milestone done"><span>2</span><div><strong>Authentification et rôles</strong><p>L’accès à l’application est protégé.</p></div></div>
-            <div className="milestone done"><span>3</span><div><strong>Catalogue configurable</strong><p>Matériels et modèles administrables.</p></div></div>
-            <div className="milestone done"><span>4</span><div><strong>Intégration Dolibarr</strong><p>Événements et rapports connectés.</p></div></div>
+            {recentActivity.length === 0 && (
+              <div className="milestone"><span><History aria-hidden size={13} /></span><div><strong>Aucune activité récente</strong></div></div>
+            )}
+            {recentActivity.map((entry) => (
+              <div className="milestone done" key={entry.id}>
+                <span><History aria-hidden size={13} /></span>
+                <div>
+                  <strong>{formatAction(entry.action)}</strong>
+                  <p>{entry.user?.name ?? "Système"} · {dateTimeFormatter.format(entry.createdAt)}</p>
+                </div>
+              </div>
+            ))}
           </div>
         </article>
         <article className="card accent-card">
-          <p className="eyebrow">Objectif</p>
-          <h2>Le même fonctionnement, sans listes figées dans le code.</h2>
-          <p>Le matériel, les modèles et les templates seront gérés directement depuis les Paramètres.</p>
+          <p className="eyebrow">Cette semaine</p>
+          <h2>{interventionsThisWeek} intervention{interventionsThisWeek > 1 ? "s" : ""} planifiée{interventionsThisWeek > 1 ? "s" : ""}, {savOpen} SAV en attente.</h2>
+          <p>Consultez la carte et l’itinéraire du jour dans Planification &amp; SAV.</p>
         </article>
       </section>
     </>

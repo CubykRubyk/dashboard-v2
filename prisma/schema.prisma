@@ -89,6 +89,26 @@ enum TechnicalDocumentType {
   OTHER
 }
 
+enum SavPriority {
+  BASSE
+  NORMALE
+  HAUTE
+  URGENTE
+}
+
+enum SavStatus {
+  OUVERT
+  CLOTURE
+}
+
+enum SavHistoryType {
+  NOTE
+  STATUS
+  PRIORITY
+  CLOSURE
+  PLANNING
+}
+
 model User {
   id                     String              @id @default(cuid())
   email                  String              @unique
@@ -97,12 +117,122 @@ model User {
   role                   UserRole            @default(OPERATOR)
   active                 Boolean             @default(true)
   lastLoginAt            DateTime?
+  teamId                 String?
+  team                   Team?               @relation(fields: [teamId], references: [id], onDelete: SetNull)
   createdAt              DateTime            @default(now())
   updatedAt              DateTime            @updatedAt
   auditLogs              AuditLog[]
   workSheets             WorkSheet[]
   createdDocumentTemplates DocumentTemplate[] @relation("DocumentTemplatesCreated")
   generatedDocuments     GeneratedDocument[] @relation("DocumentsGenerated")
+  createdSavTickets      SavTicket[]         @relation("SavTicketsCreated")
+  savHistoryEntries      SavHistoryEntry[]
+  dismissedProximitySuggestions SavProximitySuggestion[]
+}
+
+model Team {
+  id         String      @id @default(cuid())
+  name       String      @unique
+  active     Boolean     @default(true)
+  members    User[]
+  savTickets SavTicket[]
+  createdAt  DateTime    @default(now())
+  updatedAt  DateTime    @updatedAt
+
+  @@index([active, name])
+}
+
+model SavTicket {
+  id                String            @id @default(cuid())
+  reference         String            @unique
+  title             String
+  company           String
+  contact           String
+  phone             String            @default("")
+  address           String            @default("")
+  equipment         String            @default("")
+  description       String            @default("")
+  priority          SavPriority       @default(NORMALE)
+  status            SavStatus         @default(OUVERT)
+  teamId            String?
+  team              Team?             @relation(fields: [teamId], references: [id], onDelete: SetNull)
+  desiredDate       DateTime?
+  closedAt          DateTime?
+  closureReason     String?
+  closureNote       String?
+  planningDate      DateTime?
+  planningStartTime String?
+  planningEndTime   String?
+  planningNote      String?
+  latitude          Float?
+  longitude         Float?
+  createdById       String
+  createdBy         User              @relation("SavTicketsCreated", fields: [createdById], references: [id], onDelete: Restrict)
+  history           SavHistoryEntry[]
+  proximitySuggestions SavProximitySuggestion[]
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
+
+  @@index([status, priority])
+  @@index([teamId])
+}
+
+model InterventionPlanning {
+  id              String    @id @default(cuid())
+  dolibarrEventId String    @unique
+  reference       String
+  title           String
+  company         String    @default("")
+  address         String    @default("")
+  latitude        Float?
+  longitude       Float?
+  startAt         DateTime?
+  endAt           DateTime?
+  team            String    @default("")
+  color           String?
+  status          SavStatus @default(OUVERT)
+  proximitySuggestions SavProximitySuggestion[]
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  @@index([startAt])
+}
+
+model SavProximitySuggestion {
+  id                           String    @id @default(cuid())
+  savTicketId                  String
+  savTicket                    SavTicket @relation(fields: [savTicketId], references: [id], onDelete: Cascade)
+  interventionId               String
+  intervention                 InterventionPlanning @relation(fields: [interventionId], references: [id], onDelete: Cascade)
+  distanceKm                   Float
+  travelMinutes                Int
+  dismissed                    Boolean   @default(false)
+  dismissedAt                  DateTime?
+  dismissedById                String?
+  dismissedBy                  User?     @relation(fields: [dismissedById], references: [id], onDelete: SetNull)
+  savAddressSnapshot           String
+  interventionStartAtSnapshot  DateTime?
+  interventionTeamSnapshot     String
+  createdAt                    DateTime  @default(now())
+  updatedAt                    DateTime  @updatedAt
+
+  @@unique([savTicketId, interventionId])
+  @@index([savTicketId])
+  @@index([interventionId])
+}
+
+model SavHistoryEntry {
+  id          String         @id @default(cuid())
+  savTicketId String
+  savTicket   SavTicket      @relation(fields: [savTicketId], references: [id], onDelete: Cascade)
+  type        SavHistoryType
+  text        String
+  detail      String?
+  authorId    String?
+  author      User?          @relation(fields: [authorId], references: [id], onDelete: SetNull)
+  createdAt   DateTime       @default(now())
+
+  @@index([savTicketId, createdAt])
 }
 
 model MaterialCategory {
@@ -207,10 +337,13 @@ model WorkSheetTag {
 }
 
 model AppSettings {
-  id                      Int      @id @default(1)
-  dolibarrUrl             String   @default("")
-  dolibarrApiKeyEncrypted String   @default("")
-  updatedAt               DateTime @updatedAt
+  id                      Int       @id @default(1)
+  dolibarrUrl             String    @default("")
+  dolibarrApiKeyEncrypted String    @default("")
+  dolibarrEventsSyncedAt  DateTime?
+  dolibarrLastSyncError   String?
+  proximitySuggestionsSyncedAt DateTime?
+  updatedAt               DateTime  @updatedAt
 }
 
 model DocumentIssuer {
@@ -227,6 +360,9 @@ model DocumentIssuer {
   stampData                    String    @default("")
   signatureData                String    @default("")
   active                       Boolean   @default(true)
+  latitude                     Float?
+  longitude                    Float?
+  isHeadquarters               Boolean   @default(false)
   generatedDocuments           GeneratedDocument[]
   createdAt                    DateTime  @default(now())
   updatedAt                    DateTime  @updatedAt
