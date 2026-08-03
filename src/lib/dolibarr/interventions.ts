@@ -152,6 +152,7 @@ export async function syncInterventionPlannings(config: DolibarrConfig): Promise
 
 export function serializeIntervention(row: {
   id: string;
+  dolibarrEventId: string;
   reference: string;
   title: string;
   company: string;
@@ -170,6 +171,7 @@ export function serializeIntervention(row: {
   return {
     id: row.id,
     kind: "intervention",
+    dolibarrEventId: row.dolibarrEventId,
     reference: row.reference,
     title: row.title,
     company: row.company,

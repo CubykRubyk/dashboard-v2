@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { getSession } from "@/lib/auth/session";
 import { dolibarrRequest, getDolibarrConfig } from "@/lib/dolibarr/client";
+import { extractPhoneFromNote, stripDolibarrNoteHtml } from "@/lib/dolibarr/phone";
+import { parseDolibarrNote } from "@/lib/dolibarr/noteFormat";
 
 type DolibarrEvent = {
   label?: string;
@@ -10,6 +12,8 @@ type DolibarrEvent = {
   socid?: string | number;
   userownerid?: string | number;
   location?: string;
+  note_public?: string;
+  note_private?: string;
 };
 
 function dateValue(value: string | number | undefined) {
@@ -59,6 +63,7 @@ export async function GET(
       `/agendaevents/${encodeURIComponent(id)}`,
     );
     const label = String(event.label || event.actioncomm || "").trim();
+    const noteRaw = String(event.note_private || event.note_public || "").trim();
     const result = {
       id,
       label,
@@ -67,6 +72,9 @@ export async function GET(
       client: label,
       address: String(event.location || "").trim(),
       installer: "",
+      note: stripDolibarrNoteHtml(noteRaw),
+      noteTokens: parseDolibarrNote(noteRaw),
+      phone: extractPhoneFromNote(noteRaw),
     };
 
     if (event.socid) {

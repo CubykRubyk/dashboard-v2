@@ -24,7 +24,6 @@ import {
   Map,
   MapPin,
   MessageSquarePlus,
-  MoreHorizontal,
   Navigation,
   Phone,
   RefreshCcw,
@@ -52,8 +51,10 @@ import {
   patchSavTicket,
   type ItineraryResult,
 } from "./api";
+import type { NoteToken } from "@/lib/dolibarr/noteFormat";
 import { PlanningCalendar } from "./PlanningCalendar";
 import { useToast } from "@/components/layout/ToastProvider";
+import { RowActionMenu } from "@/components/ui/RowActionMenu";
 import styles from "./planification-sav.module.css";
 
 export interface SavTeam {
@@ -178,6 +179,14 @@ function todayIsoDate() {
   return isoDate(new Date());
 }
 
+// Le dimanche est un jour off chez le client — les interventions Dolibarr posées ce jour-là servent
+// d'aide-mémoire et doivent rester visibles au calendrier/liste, mais ne doivent pas polluer la carte
+// avec un pin un jour où personne ne se déplace.
+function isSundayIntervention(item: PlanningItem) {
+  if (item.kind !== "intervention" || item.source !== "dolibarr" || !item.date) return false;
+  return new Date(`${item.date}T12:00:00`).getDay() === 0;
+}
+
 const periodDayFormatter = new Intl.DateTimeFormat("fr-FR", { day: "numeric", month: "long" });
 
 function isClosed(item: PlanningItem) {
@@ -230,10 +239,10 @@ export function PlanificationSavDashboard({
   const [workflowAction, setWorkflowAction] = useState<WorkflowAction>(null);
   const [listStatusFilter, setListStatusFilter] =
     useState<ListStatusFilter>("open");
-  const [rowMenuId, setRowMenuId] = useState<string | null>(null);
   const savRecords = initialTickets;
   const proximitySuggestions = initialSuggestions;
   const [showSavForm, setShowSavForm] = useState(false);
+  const [interventionSavDraft, setInterventionSavDraft] = useState<NewSavDraft | null>(null);
   const [pending, setPending] = useState(false);
   const [syncingDolibarr, setSyncingDolibarr] = useState(false);
   const [filtersExpanded, setFiltersExpanded] = useState(false);
@@ -412,6 +421,10 @@ export function PlanificationSavDashboard({
   const filteredInterventions = filteredItems.filter(
     (item) => item.kind === "intervention",
   );
+  const mapItems = useMemo(
+    () => filteredItems.filter((item) => !isSundayIntervention(item)),
+    [filteredItems],
+  );
   const suggestionItemIds = useMemo(
     () =>
       new globalThis.Set(
@@ -459,7 +472,6 @@ export function PlanificationSavDashboard({
   const openWorkflowAction = (item: PlanningItem, action: Exclude<WorkflowAction, null>) => {
     setSelectedId(item.id);
     setWorkflowAction(action);
-    setRowMenuId(null);
   };
 
   type SavStatePatch = Partial<Omit<PlanningItem, "planningDraft">> & {
@@ -577,7 +589,6 @@ export function PlanificationSavDashboard({
 
   const deleteSav = async (item: PlanningItem) => {
     if (!window.confirm(`Supprimer ${item.reference} ?`)) return;
-    setRowMenuId(null);
     setPending(true);
     try {
       await deleteSavTicket(item.id);
@@ -607,6 +618,63 @@ export function PlanificationSavDashboard({
       setShowSavForm(false);
       router.refresh();
       showToast("SAV créé.", "success");
+    } catch {
+      showToast("La création du SAV a échoué. Réessayez.", "danger");
+    } finally {
+      setPending(false);
+    }
+  };
+
+  const prepareSavFromIntervention = async (item: PlanningItem) => {
+    setPending(true);
+    try {
+      let phone = "";
+      let note = "";
+      const eventId = item.dolibarrEventId || item.reference;
+      if (eventId) {
+        try {
+          const response = await fetch(`/api/dolibarr/events/${encodeURIComponent(eventId)}`);
+          if (response.ok) {
+            const data = await response.json();
+            phone = data.phone || "";
+            note = data.note || "";
+          }
+        } catch {}
+      }
+      setInterventionSavDraft({
+        title: item.title,
+        company: item.company || "",
+        contact: item.company || item.title,
+        phone,
+        address: item.address,
+        priority: "Normale",
+        equipment: item.equipment || "",
+        description: note || `SAV créé depuis l'intervention Dolibarr ${item.reference}.`,
+      });
+    } catch {
+      showToast("Impossible de récupérer les informations de cette intervention. Réessayez.", "danger");
+    } finally {
+      setPending(false);
+    }
+  };
+
+  const confirmSavFromIntervention = async (draft: NewSavDraft) => {
+    setPending(true);
+    try {
+      await createSavTicket({
+        title: draft.title,
+        company: draft.company,
+        contact: draft.contact,
+        phone: draft.phone,
+        address: draft.address,
+        priority: draft.priority,
+        equipment: draft.equipment || "",
+        description: draft.description,
+      });
+      setInterventionSavDraft(null);
+      setSelectedId(null);
+      router.refresh();
+      showToast("SAV ajouté depuis l'intervention Dolibarr.", "success");
     } catch {
       showToast("La création du SAV a échoué. Réessayez.", "danger");
     } finally {
@@ -807,7 +875,7 @@ export function PlanificationSavDashboard({
             </div>
             <div className={styles.mapFrame}>
               <PlanningMap
-                items={filteredItems}
+                items={mapItems}
                 activeSuggestion={activeSuggestion}
                 onSelectItem={selectItem}
                 routeMode={routeMode}
@@ -820,11 +888,11 @@ export function PlanificationSavDashboard({
               />
               <div className={styles.mapCount}>
                 <LocateFixed aria-hidden size={15} />
-                {filteredItems.filter((item) => item.coordinates).length} points
-                {filteredItems.some((item) => !item.coordinates) && (
+                {mapItems.filter((item) => item.coordinates).length} points
+                {mapItems.some((item) => !item.coordinates) && (
                   <small>
                     {" "}
-                    · {filteredItems.filter((item) => !item.coordinates).length} sans position connue
+                    · {mapItems.filter((item) => !item.coordinates).length} sans position connue
                   </small>
                 )}
               </div>
@@ -1123,35 +1191,18 @@ export function PlanificationSavDashboard({
                         >
                           <ChevronRight aria-hidden size={17} />
                         </button>
-                        <div className={styles.rowMenuWrap}>
-                          <button
-                            type="button"
-                            className={styles.rowButton}
-                            onClick={() => setRowMenuId((current) => current === item.id ? null : item.id)}
-                            aria-label={`Actions pour ${item.reference}`}
-                            aria-expanded={rowMenuId === item.id}
-                          >
-                            <MoreHorizontal aria-hidden size={17} />
-                          </button>
-                          {rowMenuId === item.id && (
-                            <div className={styles.rowMenu} role="menu">
-                              <button type="button" onClick={() => selectItem(item)}>Voir le détail</button>
-                              <button type="button" onClick={() => {
-                                if (isClosed(item)) {
-                                  updateSavState(item, { status: "Ouvert", closedAt: undefined, closureReason: undefined, closureNote: undefined }, makeHistory("status", "Statut changé vers Ouvert"));
-                                  setRowMenuId(null);
-                                } else {
-                                  openWorkflowAction(item, "close");
-                                }
-                              }}>
-                                {isClosed(item) ? "Réouvrir le SAV" : "Clôturer le SAV"}
-                              </button>
-                              <button type="button" onClick={() => openWorkflowAction(item, "note")}>Ajouter une note</button>
-                              <button type="button" onClick={() => openWorkflowAction(item, "planning")}>Préparer la planification</button>
-                              <button type="button" className={styles.rowMenuDanger} onClick={() => deleteSav(item)}>Supprimer le SAV</button>
-                            </div>
-                          )}
-                        </div>
+                        <RowActionMenu
+                          label={`Actions pour ${item.reference}`}
+                          items={[
+                            { key: "detail", label: "Voir le détail", onClick: () => selectItem(item) },
+                            isClosed(item)
+                              ? { key: "reopen", label: "Réouvrir le SAV", onClick: () => updateSavState(item, { status: "Ouvert", closedAt: undefined, closureReason: undefined, closureNote: undefined }, makeHistory("status", "Statut changé vers Ouvert")) }
+                              : { key: "close", label: "Clôturer le SAV", onClick: () => openWorkflowAction(item, "close") },
+                            { key: "note", label: "Ajouter une note", onClick: () => openWorkflowAction(item, "note") },
+                            { key: "planning", label: "Préparer la planification", onClick: () => openWorkflowAction(item, "planning") },
+                            { key: "delete", label: "Supprimer le SAV", danger: true, onClick: () => deleteSav(item) },
+                          ]}
+                        />
                       </div>
                     </td>
                   </tr>
@@ -1217,34 +1268,26 @@ export function PlanificationSavDashboard({
                             className={`${styles.priorityDot} ${styles[`priority${item.priority}`]}`}
                             title={item.priority}
                           />
-                          <div className={styles.rowMenuWrap} onClick={(event) => event.stopPropagation()}>
-                            <button
-                              type="button"
-                              className={styles.kanbanCardMenuButton}
-                              onClick={() => setRowMenuId((current) => (current === item.id ? null : item.id))}
-                              aria-label={`Actions pour ${item.reference}`}
-                              aria-expanded={rowMenuId === item.id}
-                            >
-                              <MoreHorizontal aria-hidden size={14} />
-                            </button>
-                            {rowMenuId === item.id && (
-                              <div className={styles.rowMenu} role="menu">
-                                <button type="button" onClick={() => { setRowMenuId(null); selectItem(item); }}>Voir le détail</button>
-                                {isClosed(item) ? (
-                                  <button type="button" onClick={() => { setRowMenuId(null); updateSavState(item, { status: "Ouvert", closedAt: undefined, closureReason: undefined, closureNote: undefined }, makeHistory("status", "Statut changé vers Ouvert")); }}>Réouvrir le SAV</button>
-                                ) : (
-                                  <>
-                                    <button type="button" onClick={() => { setRowMenuId(null); openWorkflowAction(item, "planning"); }}>{item.planningDraft ? "Modifier la planification" : "Préparer la planification"}</button>
-                                    {item.planningDraft && (
-                                      <button type="button" onClick={() => { setRowMenuId(null); updateSavState(item, { planningDraft: null }, makeHistory("planning", "Planification annulée"), false); }}>Annuler la planification</button>
-                                    )}
-                                    <button type="button" onClick={() => { setRowMenuId(null); openWorkflowAction(item, "close"); }}>Clôturer le SAV</button>
-                                  </>
-                                )}
-                                <button type="button" className={styles.rowMenuDanger} onClick={() => { setRowMenuId(null); deleteSav(item); }}>Supprimer le SAV</button>
-                              </div>
-                            )}
-                          </div>
+                          <span onClick={(event) => event.stopPropagation()}>
+                            <RowActionMenu
+                              label={`Actions pour ${item.reference}`}
+                              triggerClassName="rowButton rowButton-compact"
+                              triggerSize={14}
+                              items={[
+                                { key: "detail", label: "Voir le détail", onClick: () => selectItem(item) },
+                                ...(isClosed(item)
+                                  ? [{ key: "reopen", label: "Réouvrir le SAV", onClick: () => updateSavState(item, { status: "Ouvert", closedAt: undefined, closureReason: undefined, closureNote: undefined }, makeHistory("status", "Statut changé vers Ouvert")) }]
+                                  : [
+                                      { key: "planning", label: item.planningDraft ? "Modifier la planification" : "Préparer la planification", onClick: () => openWorkflowAction(item, "planning") },
+                                      ...(item.planningDraft
+                                        ? [{ key: "cancel-planning", label: "Annuler la planification", onClick: () => updateSavState(item, { planningDraft: null }, makeHistory("planning", "Planification annulée"), false) }]
+                                        : []),
+                                      { key: "close", label: "Clôturer le SAV", onClick: () => openWorkflowAction(item, "close") },
+                                    ]),
+                                { key: "delete", label: "Supprimer le SAV", danger: true, onClick: () => deleteSav(item) },
+                              ]}
+                            />
+                          </span>
                         </span>
                       </div>
                       <strong>{item.title}</strong>
@@ -1307,18 +1350,32 @@ export function PlanificationSavDashboard({
 
       {selectedItem && (
         <DetailDrawer
+          key={selectedItem.id}
           item={selectedItem}
           action={workflowAction}
           teams={teams}
           interventions={interventions}
           proximitySuggestions={proximitySuggestions}
+          pending={pending}
           onClose={() => setSelectedId(null)}
           onAction={openWorkflowAction}
           onCloseAction={closeWorkflow}
           onUpdate={updateSavState}
+          onCreateSavFromIntervention={prepareSavFromIntervention}
         />
       )}
       {showSavForm && <NewSavModal companies={worksheetCompanies} onClose={() => setShowSavForm(false)} onSubmit={addSav} />}
+      {interventionSavDraft && (
+        <NewSavModal
+          companies={worksheetCompanies}
+          initialDraft={interventionSavDraft}
+          eyebrow="Depuis Dolibarr"
+          heading="Confirmer le SAV"
+          submitLabel="Ajouter en SAV"
+          onClose={() => setInterventionSavDraft(null)}
+          onSubmit={confirmSavFromIntervention}
+        />
+      )}
     </div>
   );
 }
@@ -1405,16 +1462,19 @@ function DetailDrawer({
   teams,
   interventions,
   proximitySuggestions,
+  pending,
   onClose,
   onAction,
   onCloseAction,
   onUpdate,
+  onCreateSavFromIntervention,
 }: {
   item: PlanningItem;
   action: WorkflowAction;
   teams: SavTeam[];
   interventions: PlanningItem[];
   proximitySuggestions: ProximitySuggestion[];
+  pending: boolean;
   onClose: () => void;
   onAction: (item: PlanningItem, action: Exclude<WorkflowAction, null>) => void;
   onCloseAction: () => void;
@@ -1423,8 +1483,32 @@ function DetailDrawer({
     patch: Partial<PlanningItem> & { teamId?: string | null },
     history: SavHistoryEntry | SavHistoryEntry[],
   ) => void;
+  onCreateSavFromIntervention: (item: PlanningItem) => void;
 }) {
   const isExternal = item.source === "dolibarr";
+  const eventId = isExternal ? item.dolibarrEventId || item.reference : "";
+  const [dolibarrNoteTokens, setDolibarrNoteTokens] = useState<NoteToken[] | null>(null);
+  const [dolibarrNoteLoading, setDolibarrNoteLoading] = useState(Boolean(eventId));
+
+  useEffect(() => {
+    if (!eventId) return;
+    let cancelled = false;
+    fetch(`/api/dolibarr/events/${encodeURIComponent(eventId)}`)
+      .then((response) => (response.ok ? response.json() : null))
+      .then((data) => {
+        if (!cancelled) setDolibarrNoteTokens(data?.noteTokens || []);
+      })
+      .catch(() => {
+        if (!cancelled) setDolibarrNoteTokens([]);
+      })
+      .finally(() => {
+        if (!cancelled) setDolibarrNoteLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [eventId]);
+
   return (
     <div className={styles.drawerLayer} role="presentation" onMouseDown={(event) => {
       if (event.target === event.currentTarget) onClose();
@@ -1489,8 +1573,20 @@ function DetailDrawer({
             <DetailRow icon={Wrench} label="Équipement" value={item.equipment} />
           </section>
           <section className={styles.detailSection}>
-            <h3>Description</h3>
-            <p className={styles.description}>{item.description}</p>
+            <h3>{isExternal ? "Note Dolibarr" : "Description"}</h3>
+            {isExternal ? (
+              <p className={styles.description}>
+                {dolibarrNoteLoading ? (
+                  "Chargement…"
+                ) : dolibarrNoteTokens && dolibarrNoteTokens.length > 0 ? (
+                  <NoteRichText tokens={dolibarrNoteTokens} />
+                ) : (
+                  "Aucune note."
+                )}
+              </p>
+            ) : (
+              <p className={styles.description}>{item.description}</p>
+            )}
           </section>
           {!isExternal && (
             <>
@@ -1547,10 +1643,21 @@ function DetailDrawer({
         </div>
         <div className={styles.drawerFooter}>
           {isExternal ? (
-            <button type="button" className="button button-primary">
-              <ExternalLink aria-hidden size={15} />
-              Ouvrir dans Dolibarr
-            </button>
+            <>
+              <button
+                type="button"
+                className="button"
+                disabled={pending}
+                onClick={() => onCreateSavFromIntervention(item)}
+              >
+                <Wrench aria-hidden size={15} />
+                Ajouter en SAV
+              </button>
+              <button type="button" className="button button-primary">
+                <ExternalLink aria-hidden size={15} />
+                Ouvrir dans Dolibarr
+              </button>
+            </>
           ) : <small>Bilet SAV persisté en base de données.</small>}
         </div>
       </aside>
@@ -1725,23 +1832,33 @@ function WorkflowModal({
 
 function NewSavModal({
   companies,
+  initialDraft,
+  eyebrow = "Dashboard SAV",
+  heading = "Nouveau SAV",
+  submitLabel = "Créer le SAV",
   onClose,
   onSubmit,
 }: {
   companies: string[];
+  initialDraft?: NewSavDraft;
+  eyebrow?: string;
+  heading?: string;
+  submitLabel?: string;
   onClose: () => void;
   onSubmit: (draft: NewSavDraft) => void;
 }) {
-  const [draft, setDraft] = useState<NewSavDraft>({
-    title: "",
-    company: "",
-    contact: "",
-    phone: "",
-    address: "",
-    priority: "Normale",
-    equipment: "",
-    description: "",
-  });
+  const [draft, setDraft] = useState<NewSavDraft>(
+    initialDraft ?? {
+      title: "",
+      company: "",
+      contact: "",
+      phone: "",
+      address: "",
+      priority: "Normale",
+      equipment: "",
+      description: "",
+    },
+  );
   const [dolibarrEventId, setDolibarrEventId] = useState("");
   const [fetchingDolibarrEvent, setFetchingDolibarrEvent] = useState(false);
   const [dolibarrEventError, setDolibarrEventError] = useState("");
@@ -1776,7 +1893,7 @@ function NewSavModal({
     <div className={styles.workflowModalLayer} role="presentation" onMouseDown={(event) => event.target === event.currentTarget && onClose()}>
       <section className={styles.workflowModal} role="dialog" aria-modal="true" aria-labelledby="new-sav-title">
         <header className={styles.workflowModalHeader}>
-          <div><p className="eyebrow">Dashboard SAV</p><h2 id="new-sav-title">Nouveau SAV</h2></div>
+          <div><p className="eyebrow">{eyebrow}</p><h2 id="new-sav-title">{heading}</h2></div>
           <button type="button" onClick={onClose} aria-label="Fermer"><X aria-hidden size={17} /></button>
         </header>
         <div className={styles.workflowModalBody}>
@@ -1811,9 +1928,25 @@ function NewSavModal({
             <label className={`${styles.modalField} ${styles.modalFieldWide}`}><span>Description</span><textarea value={draft.description} onChange={(event) => set("description", event.target.value)} placeholder="Décrire la demande…" rows={3} /></label>
           </div>
         </div>
-        <footer className={styles.workflowModalFooter}><button type="button" className="button button-ghost" onClick={onClose}>Annuler</button><button type="button" className="button button-primary" disabled={!canSubmit} onClick={() => onSubmit(draft)}>Créer le SAV</button></footer>
+        <footer className={styles.workflowModalFooter}><button type="button" className="button button-ghost" onClick={onClose}>Annuler</button><button type="button" className="button button-primary" disabled={!canSubmit} onClick={() => onSubmit(draft)}>{submitLabel}</button></footer>
       </section>
     </div>
+  );
+}
+
+function NoteRichText({ tokens }: { tokens: NoteToken[] }) {
+  return (
+    <>
+      {tokens.map((token, index) =>
+        token.kind === "break" ? (
+          <br key={index} />
+        ) : (
+          <span key={index} style={{ fontWeight: token.bold ? 700 : undefined, color: token.color ?? undefined }}>
+            {token.text}
+          </span>
+        ),
+      )}
+    </>
   );
 }
 

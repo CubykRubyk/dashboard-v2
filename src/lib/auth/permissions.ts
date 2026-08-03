@@ -33,3 +33,7 @@ export function canManageSav(role: UserRole | null | undefined) {
 export function canManageTeams(role: UserRole | null | undefined) {
   return role === "ADMIN";
 }
+
+export function canManageUsers(role: UserRole | null | undefined) {
+  return role === "ADMIN";
+}

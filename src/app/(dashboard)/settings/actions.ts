@@ -1,10 +1,30 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { compare, hash } from "bcryptjs";
 import { z } from "zod";
+import type { SessionUser } from "@/lib/auth/session";
 import { getSession } from "@/lib/auth/session";
 import { prisma } from "@/lib/prisma";
 import { requireTechnicalCatalogAdmin } from "@/lib/auth/authorization";
+import type { UserRole } from "@/generated/prisma/enums";
+
+const PASSWORD_HASH_COST = 12;
+const userRoleEnum = z.enum(["ADMIN", "OPERATOR", "VIEWER", "TECHNICIEN"]);
+
+const userSchema = z.object({
+  email: z.string().trim().toLowerCase().email("L’email n’est pas valide."),
+  name: z.string().trim().min(1, "Le nom est requis.").max(120),
+  role: userRoleEnum,
+  teamId: z.string().trim(),
+  password: z.string().min(12, "12 caractères minimum."),
+});
+
+const userUpdateSchema = userSchema.omit({ password: true });
+
+function isUniqueConflict(error: unknown) {
+  return typeof error === "object" && error !== null && "code" in error && error.code === "P2002";
+}
 
 const tagSchema = z.object({
   name: z.string().trim().min(1).max(60),
@@ -257,4 +277,153 @@ export async function deleteTeam(id: string) {
   ]);
   revalidatePath("/settings");
   revalidatePath("/planification-sav");
+}
+
+// Empêche de se retirer soi-même les droits ADMIN / de se désactiver, et de retirer le dernier
+// administrateur actif restant — partagé par updateUser (changement de rôle) et toggleUser.
+async function assertNotLastAdminOrSelfLockout(
+  admin: SessionUser,
+  targetId: string,
+  next: { active?: boolean; role?: UserRole },
+) {
+  const losesAdmin = next.role !== undefined && next.role !== "ADMIN";
+  const losesActive = next.active === false;
+  if (!losesAdmin && !losesActive) return;
+
+  if (targetId === admin.id) {
+    throw new Error("Vous ne pouvez pas retirer vos propres droits administrateur ou désactiver votre compte.");
+  }
+  const otherActiveAdmins = await prisma.user.count({
+    where: { id: { not: targetId }, role: "ADMIN", active: true },
+  });
+  if (otherActiveAdmins === 0) {
+    throw new Error("Il doit rester au moins un administrateur actif.");
+  }
+}
+
+export async function createUser(formData: FormData) {
+  const admin = await requireAdmin();
+  const data = userSchema.parse(Object.fromEntries(formData));
+  const passwordHash = await hash(data.password, PASSWORD_HASH_COST);
+  let user;
+  try {
+    user = await prisma.user.create({
+      data: {
+        email: data.email,
+        name: data.name,
+        role: data.role,
+        teamId: data.teamId || null,
+        passwordHash,
+      },
+    });
+  } catch (error) {
+    if (isUniqueConflict(error)) throw new Error("Un compte existe déjà avec cet email.");
+    throw error;
+  }
+  await prisma.auditLog.create({
+    data: {
+      userId: admin.id,
+      action: "USER_CREATE",
+      entityType: "User",
+      entityId: user.id,
+      metadata: { email: user.email, role: user.role },
+    },
+  });
+  revalidatePath("/settings");
+}
+
+export async function updateUser(id: string, formData: FormData) {
+  const admin = await requireAdmin();
+  const data = userUpdateSchema.parse(Object.fromEntries(formData));
+  await assertNotLastAdminOrSelfLockout(admin, id, { role: data.role });
+  try {
+    await prisma.user.update({
+      where: { id },
+      data: { email: data.email, name: data.name, role: data.role, teamId: data.teamId || null },
+    });
+  } catch (error) {
+    if (isUniqueConflict(error)) throw new Error("Un compte existe déjà avec cet email.");
+    throw error;
+  }
+  await prisma.auditLog.create({
+    data: {
+      userId: admin.id,
+      action: "USER_UPDATE",
+      entityType: "User",
+      entityId: id,
+      metadata: { email: data.email, name: data.name, role: data.role },
+    },
+  });
+  revalidatePath("/settings");
+}
+
+export async function toggleUser(id: string, active: boolean) {
+  const admin = await requireAdmin();
+  const target = await prisma.user.findUnique({ where: { id }, select: { role: true } });
+  if (!target) throw new Error("Utilisateur introuvable.");
+  await assertNotLastAdminOrSelfLockout(admin, id, { active, role: target.role });
+
+  await prisma.user.update({ where: { id }, data: { active } });
+  await prisma.auditLog.create({
+    data: {
+      userId: admin.id,
+      action: active ? "USER_ENABLE" : "USER_DISABLE",
+      entityType: "User",
+      entityId: id,
+    },
+  });
+  revalidatePath("/settings");
+}
+
+const adminResetPasswordSchema = z.object({
+  password: z.string().min(12, "12 caractères minimum."),
+});
+
+export async function adminResetPassword(id: string, formData: FormData) {
+  const admin = await requireAdmin();
+  const { password } = adminResetPasswordSchema.parse(Object.fromEntries(formData));
+  const passwordHash = await hash(password, PASSWORD_HASH_COST);
+  await prisma.user.update({ where: { id }, data: { passwordHash } });
+  await prisma.auditLog.create({
+    data: {
+      userId: admin.id,
+      action: "USER_PASSWORD_RESET_BY_ADMIN",
+      entityType: "User",
+      entityId: id,
+    },
+  });
+  revalidatePath("/settings");
+}
+
+const changeOwnPasswordSchema = z
+  .object({
+    currentPassword: z.string().min(1, "Le mot de passe actuel est requis."),
+    newPassword: z.string().min(12, "12 caractères minimum."),
+    confirmPassword: z.string(),
+  })
+  .refine((data) => data.newPassword === data.confirmPassword, {
+    message: "Les mots de passe ne correspondent pas.",
+    path: ["confirmPassword"],
+  });
+
+export async function changeOwnPassword(formData: FormData) {
+  const session = await getSession();
+  if (!session) throw new Error("Non autorisé.");
+  const data = changeOwnPasswordSchema.parse(Object.fromEntries(formData));
+
+  const user = await prisma.user.findUnique({ where: { id: session.id }, select: { id: true, passwordHash: true } });
+  if (!user || !(await compare(data.currentPassword, user.passwordHash))) {
+    throw new Error("Mot de passe actuel incorrect.");
+  }
+
+  const passwordHash = await hash(data.newPassword, PASSWORD_HASH_COST);
+  await prisma.user.update({ where: { id: user.id }, data: { passwordHash } });
+  await prisma.auditLog.create({
+    data: {
+      userId: user.id,
+      action: "USER_PASSWORD_CHANGE_SELF",
+      entityType: "User",
+      entityId: user.id,
+    },
+  });
 }

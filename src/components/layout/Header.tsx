@@ -1,9 +1,12 @@
 "use client";
 
-import { useState } from "react";
-import { ChevronDown, LogOut, Monitor, Moon, Search, Sun } from "lucide-react";
+import { useRef, useState } from "react";
+import { ChevronDown, KeyRound, LogOut, Monitor, Moon, Search, Sun } from "lucide-react";
 import type { SessionUser } from "@/lib/auth/session";
 import { logout } from "@/app/(auth)/login/actions";
+import { changeOwnPassword } from "@/app/(dashboard)/settings/actions";
+import { GxonModal } from "@/components/ui/GxonModal";
+import { useClickOutside } from "@/lib/hooks/useClickOutside";
 import { NotificationBell } from "./NotificationBell";
 
 type ThemePreference = "light" | "dark" | "auto";
@@ -25,6 +28,10 @@ export function Header({
 }) {
   const [themeOpen, setThemeOpen] = useState(false);
   const [userOpen, setUserOpen] = useState(false);
+  const themeMenuRef = useRef<HTMLDivElement>(null);
+  const userMenuRef = useRef<HTMLDivElement>(null);
+  useClickOutside(themeMenuRef, () => setThemeOpen(false), themeOpen);
+  useClickOutside(userMenuRef, () => setUserOpen(false), userOpen);
   const ThemeIcon = theme === "dark" ? Moon : theme === "light" ? Sun : Monitor;
 
   return (
@@ -50,7 +57,7 @@ export function Header({
       </button>
       <div className="header-actions">
         <NotificationBell />
-        <div className="theme-menu">
+        <div className="theme-menu" ref={themeMenuRef}>
           <button
             className="icon-button"
             aria-label="Changer le thème"
@@ -75,7 +82,7 @@ export function Header({
             </div>
           )}
         </div>
-        <div className="user-menu">
+        <div className="user-menu" ref={userMenuRef}>
           <button
             className="user-summary"
             aria-expanded={userOpen}
@@ -94,6 +101,17 @@ export function Header({
                 <strong>{user.name}</strong>
                 <small>{user.email}</small>
               </div>
+              <GxonModal
+                trigger={<><KeyRound aria-hidden size={16} /> Changer le mot de passe</>}
+                title="Changer le mot de passe"
+              >
+                <form action={changeOwnPassword} className="issuer-form">
+                  <label>Mot de passe actuel<input name="currentPassword" type="password" required /></label>
+                  <label>Nouveau mot de passe<input name="newPassword" type="password" required minLength={12} placeholder="12 caractères minimum" /></label>
+                  <label>Confirmer le nouveau mot de passe<input name="confirmPassword" type="password" required minLength={12} /></label>
+                  <button className="button button-primary">Enregistrer</button>
+                </form>
+              </GxonModal>
               <form action={logout}>
                 <button>
                   <LogOut aria-hidden size={16} />

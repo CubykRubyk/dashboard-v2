@@ -1,6 +1,6 @@
 import Link from "next/link";
 import Image from "next/image";
-import { Building2, CirclePlus, History, Link2, Pencil, Power, PowerOff, Tags, UsersRound } from "lucide-react";
+import { Building2, CirclePlus, History, KeyRound, Link2, Pencil, Power, PowerOff, Tags, UserCog, UsersRound } from "lucide-react";
 import { DismissibleDetails } from "@/components/ui/DismissibleDetails";
 import { GxonModal } from "@/components/ui/GxonModal";
 import { DeleteTagButton } from "@/components/settings/DeleteTagButton";
@@ -8,21 +8,32 @@ import { DeleteTeamButton } from "@/components/settings/DeleteTeamButton";
 import { DolibarrSettingsForm } from "@/components/settings/DolibarrSettingsForm";
 import { AuditLogSection } from "@/components/settings/AuditLogSection";
 import { getSession } from "@/lib/auth/session";
-import { canViewAuditLog } from "@/lib/auth/permissions";
+import { canManageUsers, canViewAuditLog } from "@/lib/auth/permissions";
 import { prisma } from "@/lib/prisma";
 import {
+  adminResetPassword,
   createDocumentIssuer,
   createTag,
   createTeam,
+  createUser,
   deleteTag,
   deleteTeam,
   toggleDocumentIssuer,
   toggleTag,
   toggleTeam,
+  toggleUser,
   updateDocumentIssuer,
   updateTag,
   updateTeam,
+  updateUser,
 } from "./actions";
+
+const USER_ROLE_LABELS: Record<string, string> = {
+  ADMIN: "Administrateur",
+  OPERATOR: "Opérateur",
+  VIEWER: "Lecteur",
+  TECHNICIEN: "Technicien",
+};
 
 export const dynamic = "force-dynamic";
 
@@ -38,9 +49,16 @@ export default async function SettingsPage({
   const resolvedSearchParams = await searchParams;
   const tab = resolvedSearchParams.tab;
   const user = await getSession();
-  const requestedTab = tab === "tags" || tab === "issuers" || tab === "teams" || tab === "journal" ? tab : "dolibarr";
-  const activeTab = requestedTab === "journal" && !canViewAuditLog(user?.role) ? "dolibarr" : requestedTab;
-  const [tags, issuers, teams, settings] = await Promise.all([
+  const requestedTab =
+    tab === "tags" || tab === "issuers" || tab === "teams" || tab === "journal" || tab === "users"
+      ? tab
+      : "dolibarr";
+  const activeTab =
+    (requestedTab === "journal" && !canViewAuditLog(user?.role)) ||
+    (requestedTab === "users" && !canManageUsers(user?.role))
+      ? "dolibarr"
+      : requestedTab;
+  const [tags, issuers, teams, settings, users, activeTeams] = await Promise.all([
     activeTab === "tags"
       ? prisma.tag.findMany({
           orderBy: [{ position: "asc" }, { name: "asc" }],
@@ -59,6 +77,15 @@ export default async function SettingsPage({
     activeTab === "dolibarr"
       ? prisma.appSettings.findUnique({ where: { id: 1 } })
       : Promise.resolve(null),
+    activeTab === "users"
+      ? prisma.user.findMany({
+          orderBy: [{ active: "desc" }, { name: "asc" }],
+          include: { team: true },
+        })
+      : Promise.resolve([]),
+    activeTab === "users"
+      ? prisma.team.findMany({ where: { active: true }, orderBy: { name: "asc" } })
+      : Promise.resolve([]),
   ]);
 
   return (
@@ -100,6 +127,15 @@ export default async function SettingsPage({
         >
           <UsersRound size={17} /> Équipes
         </Link>
+        {canManageUsers(user?.role) && (
+          <Link
+            href="/settings?tab=users"
+            className={activeTab === "users" ? "active" : ""}
+            aria-current={activeTab === "users" ? "page" : undefined}
+          >
+            <UserCog size={17} /> Utilisateurs
+          </Link>
+        )}
         {canViewAuditLog(user?.role) && (
           <Link
             href="/settings?tab=journal"
@@ -333,6 +369,100 @@ export default async function SettingsPage({
                       </form>
                     </div>
                   )}
+                </div>
+              ))}
+            </div>
+          )}
+        </section>
+      )}
+
+      {activeTab === "users" && (
+        <section className="card settings-section">
+          <div className="settings-heading">
+            <div className="settings-title">
+              <span className="settings-icon"><UserCog size={20} /></span>
+              <div><h2>Utilisateurs</h2><p>Comptes ayant accès au CRM, rôles et affectation d’équipe.</p></div>
+            </div>
+            <GxonModal triggerClassName="button button-primary" trigger={<><CirclePlus size={17} /> Ajouter un utilisateur</>} title="Ajouter un utilisateur" description="Le mot de passe initial est à communiquer vous-même à la personne concernée.">
+              <form action={createUser} className="issuer-form">
+                <label>Nom<input name="name" required placeholder="Nom complet" /></label>
+                <label>Email<input name="email" type="email" required placeholder="prenom.nom@exemple.fr" /></label>
+                <label>Rôle
+                  <select name="role" defaultValue="OPERATOR">
+                    {Object.entries(USER_ROLE_LABELS).map(([value, label]) => (
+                      <option key={value} value={value}>{label}</option>
+                    ))}
+                  </select>
+                </label>
+                <label>Équipe <small>(optionnelle)</small>
+                  <select name="teamId" defaultValue="">
+                    <option value="">Aucune équipe</option>
+                    {activeTeams.map((team) => (
+                      <option key={team.id} value={team.id}>{team.name}</option>
+                    ))}
+                  </select>
+                </label>
+                <label>Mot de passe initial<input name="password" type="password" required minLength={12} placeholder="12 caractères minimum" /></label>
+                <button className="button button-primary">Créer le compte</button>
+              </form>
+            </GxonModal>
+          </div>
+
+          {users.length === 0 ? (
+            <div className="settings-empty">Aucun utilisateur.</div>
+          ) : (
+            <div className="entity-card-grid">
+              {users.map((entry) => (
+                <div className={`entity-card${entry.active ? "" : " inactive"}`} key={entry.id}>
+                  <div className="entity-card-top">
+                    <span className="entity-card-icon">{entry.name.slice(0, 1).toUpperCase()}</span>
+                    <div className="entity-card-title">
+                      <h2>{entry.name}</h2>
+                      <p>{entry.email}</p>
+                    </div>
+                    <span className={`entity-card-pill ${entry.active ? "active" : "inactive"}`}>
+                      {entry.active ? "Actif" : "Inactif"}
+                    </span>
+                  </div>
+                  <div className="entity-card-rows">
+                    <div className="entity-card-row"><span>Rôle</span><span>{USER_ROLE_LABELS[entry.role] ?? entry.role}</span></div>
+                    <div className="entity-card-row"><span>Équipe</span><span>{entry.team?.name ?? "—"}</span></div>
+                  </div>
+                  <div className="entity-card-foot">
+                    <GxonModal triggerClassName="mini-action" trigger={<><Pencil size={14} /> Modifier</>} title={`Modifier ${entry.name}`}>
+                      <form action={updateUser.bind(null, entry.id)} className="issuer-form issuer-edit-form">
+                        <label>Nom<input name="name" required defaultValue={entry.name} /></label>
+                        <label>Email<input name="email" type="email" required defaultValue={entry.email} /></label>
+                        <label>Rôle
+                          <select name="role" defaultValue={entry.role}>
+                            {Object.entries(USER_ROLE_LABELS).map(([value, label]) => (
+                              <option key={value} value={value}>{label}</option>
+                            ))}
+                          </select>
+                        </label>
+                        <label>Équipe <small>(optionnelle)</small>
+                          <select name="teamId" defaultValue={entry.teamId ?? ""}>
+                            <option value="">Aucune équipe</option>
+                            {activeTeams.map((team) => (
+                              <option key={team.id} value={team.id}>{team.name}</option>
+                            ))}
+                          </select>
+                        </label>
+                        <button className="button button-primary button-small">Enregistrer</button>
+                      </form>
+                    </GxonModal>
+                    <GxonModal triggerClassName="mini-action" trigger={<><KeyRound size={14} /> Réinitialiser</>} title={`Réinitialiser le mot de passe de ${entry.name}`} description="Communiquez le nouveau mot de passe vous-même à la personne concernée.">
+                      <form action={adminResetPassword.bind(null, entry.id)} className="issuer-form">
+                        <label>Nouveau mot de passe<input name="password" type="password" required minLength={12} placeholder="12 caractères minimum" /></label>
+                        <button className="button button-primary button-small">Réinitialiser</button>
+                      </form>
+                    </GxonModal>
+                    <form action={toggleUser.bind(null, entry.id, !entry.active)}>
+                      <button className={`status-button${entry.active ? " active" : ""}`} disabled={entry.id === user?.id}>
+                        {entry.active ? <><PowerOff size={14} /> Désactiver</> : <><Power size={14} /> Activer</>}
+                      </button>
+                    </form>
+                  </div>
                 </div>
               ))}
             </div>

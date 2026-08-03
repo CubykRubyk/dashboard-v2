@@ -27,7 +27,7 @@ function haversineKm(a: [number, number], b: [number, number]) {
 }
 
 export async function computeProximitySuggestions(): Promise<void> {
-  const [eligibleSavTickets, eligibleInterventions] = await Promise.all([
+  const [eligibleSavTickets, interventionRows] = await Promise.all([
     prisma.savTicket.findMany({
       where: {
         status: "OUVERT",
@@ -46,6 +46,15 @@ export async function computeProximitySuggestions(): Promise<void> {
       select: { id: true, team: true, startAt: true, latitude: true, longitude: true },
     }),
   ]);
+
+  // Le dimanche est jour off chez le client — ces interventions sont des aide-mémoire, pas des
+  // déplacements réels, donc elles ne doivent jamais être proposées comme rapprochement de proximité
+  // (sinon un SAV créé depuis une intervention du dimanche se retrouve suggéré en trajet de ~0m avec
+  // sa propre intervention source). `startAt` encode l'heure locale Europe/Paris dans les composantes
+  // UTC brutes (voir `syncInterventionPlannings`), donc `getUTCDay()` donne le bon jour de semaine.
+  const eligibleInterventions = interventionRows.filter(
+    (row) => !row.startAt || row.startAt.getUTCDay() !== 0,
+  );
 
   let osrmCalls = 0;
 

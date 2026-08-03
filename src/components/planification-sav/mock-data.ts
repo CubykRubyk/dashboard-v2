@@ -42,6 +42,7 @@ export interface PlanningItem {
   equipment: string;
   description: string;
   source: "dashboard" | "dolibarr";
+  dolibarrEventId?: string;
   closedAt?: string;
   closureReason?: string;
   closureNote?: string;

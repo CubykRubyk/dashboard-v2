@@ -217,8 +217,8 @@
   border-radius: 8px;
   outline: 0;
   color: var(--heading);
-  background: var(--control-bg);
-  padding: 0 8px;
+  background-color: var(--control-bg);
+  padding: 0 26px 0 8px;
   font-size: 10px;
 }
 
@@ -970,44 +970,6 @@
   gap: 5px;
 }
 
-.rowMenuWrap {
-  position: relative;
-}
-
-.rowMenu {
-  position: absolute;
-  top: calc(100% + 7px);
-  right: 0;
-  z-index: 30;
-  display: grid;
-  width: 205px;
-  border: 1px solid var(--border);
-  border-radius: 9px;
-  background: var(--surface);
-  padding: 5px;
-  box-shadow: 0 14px 34px rgb(var(--shadow-overlay) / 18%);
-}
-
-.rowMenu button {
-  border: 0;
-  border-radius: 6px;
-  color: var(--heading);
-  background: transparent;
-  padding: 8px 9px;
-  text-align: left;
-  font-size: 10px;
-}
-
-.rowMenu button:hover:not(:disabled) {
-  color: var(--primary);
-  background: var(--primary-subtle);
-}
-
-.rowMenu button:disabled {
-  cursor: not-allowed;
-  color: var(--muted);
-  opacity: .55;
-}
 
 .listHeaderActions,
 .quickFilters {
@@ -1068,10 +1030,10 @@
   white-space: nowrap;
 }
 
-.priorityBasse { color: #69738e; background: #f0f2f7; }
-.priorityNormale { color: #2955c8; background: var(--primary-subtle); }
-.priorityHaute { color: #9a5800; background: var(--warning-subtle); }
-.priorityUrgente { color: #bc2e12; background: var(--danger-subtle); }
+.priorityBasse { color: #69738e; background-color: #f0f2f7; }
+.priorityNormale { color: #2955c8; background-color: var(--primary-subtle); }
+.priorityHaute { color: #9a5800; background-color: var(--warning-subtle); }
+.priorityUrgente { color: #bc2e12; background-color: var(--danger-subtle); }
 .prioritySelect {
   min-width: 92px;
   border: 1px solid currentColor;
@@ -1092,7 +1054,6 @@
 
 .priorityEditor span { white-space: nowrap; }
 
-.rowMenuDanger { color: #c0392b !important; }
 .statusSuccess { color: #12805a; background: var(--success-subtle); }
 .statusInfo { color: #087ca8; background: #e9f9ff; }
 .statusWarning { color: #9a5800; background: var(--warning-subtle); }
@@ -1517,11 +1478,12 @@
   border-radius: 8px;
   outline: 0;
   color: var(--heading);
-  background: var(--surface);
+  background-color: var(--surface);
   padding: 9px 10px;
   font-size: 11px;
   font-weight: 500;
 }
+.modalField select { padding-right: 32px; }
 
 .modalField textarea {
   resize: vertical;
@@ -1610,6 +1572,7 @@
   padding: 11px;
   font-size: 13px;
   line-height: 1.5;
+  white-space: pre-line;
 }
 
 .drawerFooter {
@@ -2040,23 +2003,6 @@
   display: flex;
   align-items: center;
   gap: 7px;
-}
-
-.kanbanCardMenuButton {
-  display: grid;
-  width: 22px;
-  height: 22px;
-  place-items: center;
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  color: var(--muted);
-  background: var(--surface);
-}
-
-.kanbanCardMenuButton:hover {
-  border-color: var(--primary);
-  color: var(--primary);
-  background: var(--primary-subtle);
 }
 
 .kanbanCard strong {
