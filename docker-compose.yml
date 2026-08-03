@@ -28,7 +28,7 @@ services:
       AUTH_SECRET: ${AUTH_SECRET}
       NODE_ENV: production
       TECHNICAL_DOCUMENT_STORAGE_ROOT: /app/data/pac-documents
-      TECHNICAL_DOCUMENT_STORAGE_REQUIRE_MOUNT: "true"
+      TECHNICAL_DOCUMENT_STORAGE_ROOT_REQUIRE_MOUNT: "true"
       DOCUMENT_TEMPLATE_STORAGE_ROOT: /app/data/document-templates
       DOCUMENT_TEMPLATE_STORAGE_ROOT_REQUIRE_MOUNT: "true"
       GENERATED_DOCUMENT_STORAGE_ROOT: /app/data/generated-documents
