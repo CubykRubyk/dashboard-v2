@@ -178,19 +178,7 @@ function todayIsoDate() {
   return isoDate(new Date());
 }
 
-function tomorrowIsoDate() {
-  const tomorrow = new Date();
-  tomorrow.setDate(tomorrow.getDate() + 1);
-  return isoDate(tomorrow);
-}
-
 const periodDayFormatter = new Intl.DateTimeFormat("fr-FR", { day: "numeric", month: "long" });
-
-function tomorrowDate() {
-  const tomorrow = new Date();
-  tomorrow.setDate(tomorrow.getDate() + 1);
-  return tomorrow;
-}
 
 function isClosed(item: PlanningItem) {
   return item.status === "Clôturé" || Boolean(item.closedAt);
@@ -391,9 +379,9 @@ export function PlanificationSavDashboard({
       // planifier", donc ce filtre ne doit jamais les masquer.
       const dateMatches =
         item.kind === "sav" ||
+        filters.period === "all" ||
         (filters.period === "week" && item.date >= weekRange.start && item.date <= weekRange.end) ||
-        (filters.period === "today" && item.date === todayIsoDate()) ||
-        (filters.period === "tomorrow" && item.date === tomorrowIsoDate());
+        (filters.period === "today" && item.date === todayIsoDate());
       const searchMatches =
         !normalizedSearch ||
         [
@@ -707,9 +695,8 @@ export function PlanificationSavDashboard({
               value={filters.period}
               onChange={(value) => updateFilter("period", value)}
               options={[
-                { value: "week", label: "Cette semaine" },
                 { value: "today", label: `Aujourd’hui · ${periodDayFormatter.format(new Date())}` },
-                { value: "tomorrow", label: `Demain · ${periodDayFormatter.format(tomorrowDate())}` },
+                { value: "week", label: "Cette semaine" },
               ]}
             />
             <FilterSelect
@@ -1378,7 +1365,7 @@ function FilterSelect({
     <label className={styles.filterSelect}>
       <span>{label}</span>
       <select value={value} onChange={(event) => onChange(event.target.value)}>
-        {label !== "Période" && <option value="all">Tous</option>}
+        <option value="all">Tous</option>
         {options.map((option) => (
           <option key={option.value} value={option.value}>{option.label}</option>
         ))}
