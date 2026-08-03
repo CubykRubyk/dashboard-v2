@@ -29,15 +29,23 @@ services:
       NODE_ENV: production
       TECHNICAL_DOCUMENT_STORAGE_ROOT: /app/data/pac-documents
       TECHNICAL_DOCUMENT_STORAGE_REQUIRE_MOUNT: "true"
+      DOCUMENT_TEMPLATE_STORAGE_ROOT: /app/data/document-templates
+      DOCUMENT_TEMPLATE_STORAGE_ROOT_REQUIRE_MOUNT: "true"
+      GENERATED_DOCUMENT_STORAGE_ROOT: /app/data/generated-documents
+      GENERATED_DOCUMENT_STORAGE_ROOT_REQUIRE_MOUNT: "true"
     ports:
       - "127.0.0.1:3001:3000"
     volumes:
       - document_data:/app/data/pac-documents
+      - document_templates_data:/app/data/document-templates
+      - generated_documents_data:/app/data/generated-documents
     networks: [backend]
 
 volumes:
   postgres_data:
   document_data:
+  document_templates_data:
+  generated_documents_data:
 
 networks:
   backend:
