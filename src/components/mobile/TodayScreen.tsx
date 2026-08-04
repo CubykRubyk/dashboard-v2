@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
-import { CalendarOff, ChevronRight } from "lucide-react";
+import { CalendarOff, ChevronLeft, ChevronRight } from "lucide-react";
 import { useMobilePreferences } from "./MobilePreferences";
 import { MobileTabBar } from "./MobileTabBar";
 import { PullToRefresh } from "./PullToRefresh";
@@ -35,11 +35,18 @@ export function TodayScreen({
 }) {
   const { t, locale } = useMobilePreferences();
   const [selectedIso, setSelectedIso] = useState(todayIso);
+  const [weekStart, setWeekStart] = useState(() => mondayOf(todayIso));
 
-  const weekDays = useMemo(() => {
-    const monday = mondayOf(todayIso);
-    return Array.from({ length: 7 }, (_, offset) => addDaysIso(monday, offset));
-  }, [todayIso]);
+  const weekDays = useMemo(
+    () => Array.from({ length: 7 }, (_, offset) => addDaysIso(weekStart, offset)),
+    [weekStart],
+  );
+
+  const shiftWeek = (weeks: number) => {
+    const nextStart = addDaysIso(weekStart, weeks * 7);
+    setWeekStart(nextStart);
+    setSelectedIso(nextStart);
+  };
 
   // Les SAV ouverts restent visibles quel que soit le jour choisi (ils sont "à traiter", pas datés) ;
   // les interventions, elles, appartiennent à une date précise.
@@ -81,9 +88,19 @@ export function TodayScreen({
           <span className={styles.brandMark}>{initials}</span>
           <span className={styles.brandName}>{companyName}</span>
         </div>
-        <h1 className={styles.topTitle}>
-          {selectedIso === todayIso ? t("today.title") : titleFormatter.format(new Date(`${selectedIso}T12:00:00`))}
-        </h1>
+        <div className={styles.topRow}>
+          <h1 className={styles.topTitle}>
+            {selectedIso === todayIso ? t("today.title") : titleFormatter.format(new Date(`${selectedIso}T12:00:00`))}
+          </h1>
+          <div className={styles.weekNav}>
+            <button type="button" onClick={() => shiftWeek(-1)} aria-label="Semaine précédente">
+              <ChevronLeft aria-hidden size={18} />
+            </button>
+            <button type="button" onClick={() => shiftWeek(1)} aria-label="Semaine suivante">
+              <ChevronRight aria-hidden size={18} />
+            </button>
+          </div>
+        </div>
         <p className={styles.topStats}>
           <b>{dayInterventions.length}</b> {t("today.stats.interventions")}
           {showSav && (

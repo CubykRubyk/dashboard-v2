@@ -958,6 +958,83 @@ a.field:active, button.field:active { background: var(--control-bg); }
 
 .dangerField strong { color: var(--m-red); }
 
+/* ---------- calendrier mensuel ---------- */
+
+.monthGrid {
+  flex: 0 0 auto;
+  padding: 6px 16px 4px;
+}
+
+.monthWeekdays {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  padding-bottom: 6px;
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 800;
+  text-align: center;
+  text-transform: uppercase;
+}
+
+.monthCells {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  row-gap: 2px;
+}
+
+.monthCell {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  border: 0;
+  background: none;
+  padding: 6px 0;
+  color: var(--heading);
+  font: inherit;
+  cursor: pointer;
+}
+
+.monthCellOutside {
+  color: var(--muted);
+  opacity: .35;
+}
+
+.monthCellNumber {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  font-size: 13.5px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  transition: background-color .16s ease, color .16s ease;
+}
+
+.monthCellToday .monthCellNumber {
+  color: var(--m-accent);
+  font-weight: 800;
+}
+
+.monthCellSelected .monthCellNumber {
+  background: var(--m-accent);
+  color: #fff;
+  font-weight: 800;
+}
+
+.monthCellDots {
+  display: flex;
+  gap: 2px;
+  height: 4px;
+}
+
+.monthCellDots i {
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+}
+
 /* ---------- agenda ---------- */
 
 .weekNav {

@@ -17,26 +17,29 @@ function addDaysIso(iso: string, days: number) {
   return date.toISOString().slice(0, 10);
 }
 
-function mondayOf(iso: string) {
-  const date = new Date(`${iso}T12:00:00Z`);
-  const weekday = (date.getUTCDay() + 6) % 7;
-  return addDaysIso(iso, -weekday);
-}
-
 function todayIso() {
   return new Intl.DateTimeFormat("fr-CA", { timeZone: "Europe/Paris" }).format(new Date());
 }
 
-// Calendrier propre au mobile — pas FullCalendar (trop dense, illisible à cette taille) : une
-// semaine défilante en haut, des blocs colorés pleine largeur en dessous, sur le modèle validé
-// dans l'artefact ("calendrier full-screen horizontal") plutôt qu'une copie du desktop.
+// Premier jour de la grille (lundi de la semaine contenant le 1er du mois).
+function gridStartOf(year: number, month: number) {
+  const first = new Date(Date.UTC(year, month, 1, 12));
+  const weekday = (first.getUTCDay() + 6) % 7;
+  first.setUTCDate(first.getUTCDate() - weekday);
+  return first.toISOString().slice(0, 10);
+}
+
+// Vrai calendrier mensuel — pas une répétition de la bande de jours de l'écran "Aujourd'hui".
+// Grille 7×6 (façon iOS Calendar), points colorés sous les jours actifs, agenda du jour choisi
+// en dessous avec les mêmes blocs pleine largeur que le mockup validé.
 export function AgendaScreen({ items }: { items: PlanningItem[] }) {
   const { t, locale } = useMobilePreferences();
-  const [weekStart, setWeekStart] = useState(() => mondayOf(todayIso()));
-  const [selectedIso, setSelectedIso] = useState(() => todayIso());
   const today = todayIso();
-
-  const weekDays = useMemo(() => Array.from({ length: 7 }, (_, offset) => addDaysIso(weekStart, offset)), [weekStart]);
+  const [cursor, setCursor] = useState(() => {
+    const [y, m] = today.split("-").map(Number);
+    return { year: y, month: m - 1 };
+  });
+  const [selectedIso, setSelectedIso] = useState(today);
 
   const byDay = useMemo(() => {
     const map = new Map<string, PlanningItem[]>();
@@ -49,15 +52,22 @@ export function AgendaScreen({ items }: { items: PlanningItem[] }) {
     return map;
   }, [items]);
 
-  const dayItems = byDay.get(selectedIso) ?? [];
-  const dayFormatter = new Intl.DateTimeFormat(LOCALE_TAGS[locale], { weekday: "short" });
-  const titleFormatter = new Intl.DateTimeFormat(LOCALE_TAGS[locale], { weekday: "long", day: "numeric", month: "long" });
+  const gridDays = useMemo(() => {
+    const start = gridStartOf(cursor.year, cursor.month);
+    return Array.from({ length: 42 }, (_, offset) => addDaysIso(start, offset));
+  }, [cursor]);
 
-  const shiftWeek = (weeks: number) => {
-    const nextStart = addDaysIso(weekStart, weeks * 7);
-    setWeekStart(nextStart);
-    setSelectedIso(nextStart);
+  const shiftMonth = (delta: number) => {
+    const next = new Date(Date.UTC(cursor.year, cursor.month + delta, 1, 12));
+    setCursor({ year: next.getUTCFullYear(), month: next.getUTCMonth() });
+    setSelectedIso(next.toISOString().slice(0, 10));
   };
+
+  const dayItems = byDay.get(selectedIso) ?? [];
+  const monthFormatter = new Intl.DateTimeFormat(LOCALE_TAGS[locale], { month: "long", year: "numeric" });
+  const dayTitleFormatter = new Intl.DateTimeFormat(LOCALE_TAGS[locale], { weekday: "long", day: "numeric", month: "long" });
+  const weekdayFormatter = new Intl.DateTimeFormat(LOCALE_TAGS[locale], { weekday: "narrow" });
+  const weekdayLabels = Array.from({ length: 7 }, (_, i) => weekdayFormatter.format(new Date(`2026-08-${String(3 + i).padStart(2, "0")}T12:00:00`)));
 
   return (
     <>
@@ -65,41 +75,63 @@ export function AgendaScreen({ items }: { items: PlanningItem[] }) {
         <div className={styles.topRow}>
           <div>
             <p className={styles.topEyebrow}>{t("calendar.subtitle")}</p>
-            <h1 className={styles.topTitle}>{titleFormatter.format(new Date(`${selectedIso}T12:00:00`))}</h1>
+            <h1 className={styles.topTitle} style={{ textTransform: "capitalize" }}>
+              {monthFormatter.format(new Date(Date.UTC(cursor.year, cursor.month, 1)))}
+            </h1>
           </div>
           <div className={styles.weekNav}>
-            <button type="button" onClick={() => shiftWeek(-1)} aria-label="Semaine précédente">
+            <button type="button" onClick={() => shiftMonth(-1)} aria-label="Mois précédent">
               <ChevronLeft aria-hidden size={18} />
             </button>
-            <button type="button" onClick={() => shiftWeek(1)} aria-label="Semaine suivante">
+            <button type="button" onClick={() => shiftMonth(1)} aria-label="Mois suivant">
               <ChevronRight aria-hidden size={18} />
             </button>
           </div>
         </div>
       </header>
 
-      <div className={styles.weekStrip} role="group" aria-label={t("calendar.title")}>
-        {weekDays.map((iso) => {
-          const count = (byDay.get(iso) ?? []).length;
-          const isSelected = iso === selectedIso;
-          const isToday = iso === today;
-          return (
-            <button
-              key={iso}
-              type="button"
-              className={`${styles.weekDay}${isSelected ? ` ${styles.weekDayActive}` : ""}${
-                !isSelected && isToday ? ` ${styles.weekDayToday}` : ""
-              }`}
-              onClick={() => setSelectedIso(iso)}
-              aria-pressed={isSelected}
-            >
-              <span className={styles.weekDayName}>{dayFormatter.format(new Date(`${iso}T12:00:00`)).replace(".", "")}</span>
-              <span className={styles.weekDayNumber}>{Number(iso.slice(8, 10))}</span>
-              <span className={count > 0 ? styles.weekDayDot : styles.weekDayDotEmpty} />
-            </button>
-          );
-        })}
+      <div className={styles.monthGrid}>
+        <div className={styles.monthWeekdays}>
+          {weekdayLabels.map((label, i) => (
+            <span key={i}>{label}</span>
+          ))}
+        </div>
+        <div className={styles.monthCells}>
+          {gridDays.map((iso) => {
+            const inMonth = Number(iso.slice(5, 7)) - 1 === cursor.month;
+            const dayList = byDay.get(iso) ?? [];
+            const isSelected = iso === selectedIso;
+            const isToday = iso === today;
+            return (
+              <button
+                key={iso}
+                type="button"
+                className={`${styles.monthCell}${isSelected ? ` ${styles.monthCellSelected}` : ""}${
+                  !isSelected && isToday ? ` ${styles.monthCellToday}` : ""
+                }${inMonth ? "" : ` ${styles.monthCellOutside}`}`}
+                onClick={() => setSelectedIso(iso)}
+                aria-pressed={isSelected}
+              >
+                <span className={styles.monthCellNumber}>{Number(iso.slice(8, 10))}</span>
+                {dayList.length > 0 && (
+                  <span className={styles.monthCellDots}>
+                    {dayList.slice(0, 3).map((dayItem) => (
+                      <i
+                        key={dayItem.id}
+                        style={{ background: isSelected ? "currentColor" : dayItem.color || "var(--m-orange)" }}
+                      />
+                    ))}
+                  </span>
+                )}
+              </button>
+            );
+          })}
+        </div>
       </div>
+
+      <p className={styles.sectionLabel} style={{ textTransform: "capitalize" }}>
+        {dayTitleFormatter.format(new Date(`${selectedIso}T12:00:00`))}
+      </p>
 
       <PullToRefresh className={styles.pageEnter} key={selectedIso}>
         {dayItems.length === 0 && (
