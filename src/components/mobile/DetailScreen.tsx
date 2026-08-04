@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
   CalendarDays,
   CheckCircle2,
@@ -9,6 +10,7 @@ import {
   MapPin,
   Navigation,
   Phone,
+  RefreshCw,
   UsersRound,
   Wrench,
 } from "lucide-react";
@@ -21,17 +23,24 @@ const LOCALE_TAGS = { fr: "fr-FR", ro: "ro-RO", ru: "ru-RU" } as const;
 
 export function DetailScreen({ item }: { item: PlanningItem }) {
   const { t, locale } = useMobilePreferences();
+  const router = useRouter();
   const isIntervention = item.kind === "intervention";
   const eventId = isIntervention ? item.dolibarrEventId || item.reference : "";
 
   const [noteTokens, setNoteTokens] = useState<NoteToken[] | null>(null);
   const [notePhone, setNotePhone] = useState("");
   const [noteLoading, setNoteLoading] = useState(Boolean(eventId));
+  const [refreshToken, setRefreshToken] = useState(0);
+  const [refreshing, setRefreshing] = useState(false);
 
+  // La note/le téléphone Dolibarr sont mis en cache côté serveur (5 min, voir
+  // /api/dolibarr/events/[id]/route.ts) — on ne les redemande donc plus à chaque ouverture. Le
+  // bouton ci-dessous force un aller réel avec `?refresh=1` quand on en a vraiment besoin.
   useEffect(() => {
     if (!eventId) return;
     let cancelled = false;
-    fetch(`/api/dolibarr/events/${encodeURIComponent(eventId)}`)
+    const query = refreshToken > 0 ? "?refresh=1" : "";
+    fetch(`/api/dolibarr/events/${encodeURIComponent(eventId)}${query}`)
       .then((response) => (response.ok ? response.json() : null))
       .then((data) => {
         if (cancelled) return;
@@ -47,7 +56,15 @@ export function DetailScreen({ item }: { item: PlanningItem }) {
     return () => {
       cancelled = true;
     };
-  }, [eventId]);
+  }, [eventId, refreshToken]);
+
+  const refresh = () => {
+    setRefreshing(true);
+    if (eventId) setNoteLoading(true);
+    setRefreshToken((current) => current + 1);
+    router.refresh();
+    window.setTimeout(() => setRefreshing(false), 600);
+  };
 
   const phone = item.phone || notePhone;
   const dateLabel = item.date
@@ -63,6 +80,15 @@ export function DetailScreen({ item }: { item: PlanningItem }) {
           <ChevronLeft aria-hidden size={19} />
           {t("detail.back")}
         </Link>
+        <button
+          type="button"
+          className={styles.navButton}
+          onClick={refresh}
+          disabled={refreshing}
+          aria-label={t("common.retry")}
+        >
+          <RefreshCw aria-hidden size={17} className={refreshing ? styles.spin : undefined} />
+        </button>
       </div>
 
       <div className={`${styles.scroll} ${styles.pageEnter}`}>

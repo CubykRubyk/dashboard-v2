@@ -1,3 +1,4 @@
+import { after } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { serializeSavTicket } from "@/lib/sav/mappers";
 import { getDolibarrConfig } from "@/lib/dolibarr/client";
@@ -26,19 +27,31 @@ export default async function PlanificationSavPage({
 }) {
   const { open } = await searchParams;
   const config = await getDolibarrConfig();
+  // La sync Dolibarr (throttle 300ms/adresse geocodée) + le calcul des suggestions de proximité
+  // (throttle 500ms/appel OSRM, jusqu'à 50 appels) bloquaient le rendu de la page — la liste SAV
+  // pouvait mettre plusieurs dizaines de secondes à s'afficher pendant qu'ils tournaient au premier
+  // chargement "périmé". `after()` (Next 15+) les repousse après l'envoi de la réponse : la page
+  // s'affiche immédiatement avec les données déjà en base (potentiellement mineures de quelques
+  // minutes), et se met à jour pour le prochain chargement une fois la synchro terminée.
   if (config) {
     const settings = await prisma.appSettings.findUnique({ where: { id: 1 } });
-    if (isStale(settings?.dolibarrEventsSyncedAt, SYNC_STALE_AFTER_MS)) {
-      await syncInterventionPlannings(config).catch(async (error) => {
-        console.error("Synchronisation Dolibarr échouée:", error);
-        const message = error instanceof Error ? error.message : "Synchronisation Dolibarr échouée.";
-        await prisma.appSettings.update({ where: { id: 1 }, data: { dolibarrLastSyncError: message } }).catch(() => {});
-      });
-    }
-    const refreshedSettings = await prisma.appSettings.findUnique({ where: { id: 1 } });
-    if (isStale(refreshedSettings?.proximitySuggestionsSyncedAt, PROXIMITY_STALE_AFTER_MS)) {
-      await computeProximitySuggestions().catch((error) => {
-        console.error("Calcul des suggestions de proximité échoué:", error);
+    const needsEventSync = isStale(settings?.dolibarrEventsSyncedAt, SYNC_STALE_AFTER_MS);
+    const needsProximitySync = isStale(settings?.proximitySuggestionsSyncedAt, PROXIMITY_STALE_AFTER_MS);
+    if (needsEventSync || needsProximitySync) {
+      after(async () => {
+        if (needsEventSync) {
+          await syncInterventionPlannings(config).catch(async (error) => {
+            console.error("Synchronisation Dolibarr échouée:", error);
+            const message = error instanceof Error ? error.message : "Synchronisation Dolibarr échouée.";
+            await prisma.appSettings.update({ where: { id: 1 }, data: { dolibarrLastSyncError: message } }).catch(() => {});
+          });
+        }
+        // Après la sync des événements, pas avant — les suggestions dépendent des interventions à jour.
+        if (needsProximitySync) {
+          await computeProximitySuggestions().catch((error) => {
+            console.error("Calcul des suggestions de proximité échoué:", error);
+          });
+        }
       });
     }
   }

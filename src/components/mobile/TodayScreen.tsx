@@ -5,6 +5,7 @@ import Link from "next/link";
 import { CalendarOff, ChevronRight } from "lucide-react";
 import { useMobilePreferences } from "./MobilePreferences";
 import { MobileTabBar } from "./MobileTabBar";
+import { PullToRefresh } from "./PullToRefresh";
 import type { PlanningItem } from "@/components/planification-sav/mock-data";
 import styles from "./mobile.module.css";
 
@@ -119,7 +120,7 @@ export function TodayScreen({
         })}
       </div>
 
-      <div className={`${styles.scroll} ${styles.pageEnter}`} key={selectedIso}>
+      <PullToRefresh className={styles.pageEnter} key={selectedIso}>
         {visible.length === 0 && (
           <div className={styles.empty}>
             <CalendarOff aria-hidden size={30} />
@@ -138,7 +139,7 @@ export function TodayScreen({
           openSav.map((item, index) => (
             <ItemRow key={item.id} item={item} index={dayInterventions.length + index} />
           ))}
-      </div>
+      </PullToRefresh>
 
       <MobileTabBar />
     </>
@@ -154,7 +155,7 @@ export function ItemRow({ item, index }: { item: PlanningItem; index: number }) 
     <Link
       href={`/mobile/item/${item.id}`}
       className={`${styles.row} ${styles.stagger}`}
-      style={{ borderLeftColor: accent, "--i": Math.min(index, 12) } as React.CSSProperties}
+      style={{ "--row-accent": accent, "--i": Math.min(index, 12) } as React.CSSProperties}
     >
       <span className={styles.rowTime}>
         {item.time || "—"}

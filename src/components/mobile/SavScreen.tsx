@@ -5,6 +5,7 @@ import Link from "next/link";
 import { ChevronRight, SearchX } from "lucide-react";
 import { useT } from "./MobilePreferences";
 import { MobileTabBar } from "./MobileTabBar";
+import { PullToRefresh } from "./PullToRefresh";
 import type { PlanningItem } from "@/components/planification-sav/mock-data";
 import styles from "./mobile.module.css";
 
@@ -51,7 +52,7 @@ export function SavScreen({ tickets }: { tickets: PlanningItem[] }) {
         ))}
       </div>
 
-      <div className={`${styles.scroll} ${styles.pageEnter}`} key={filter}>
+      <PullToRefresh className={styles.pageEnter} key={filter}>
         {visible.length === 0 && (
           <div className={styles.empty}>
             <SearchX aria-hidden size={30} />
@@ -69,7 +70,7 @@ export function SavScreen({ tickets }: { tickets: PlanningItem[] }) {
               className={`${styles.row} ${styles.stagger}`}
               style={
                 {
-                  borderLeftColor: closed ? "var(--m-green)" : urgent ? "var(--m-red)" : "var(--m-orange)",
+                  "--row-accent": closed ? "var(--m-green)" : urgent ? "var(--m-red)" : "var(--m-orange)",
                   "--i": Math.min(index, 12),
                 } as React.CSSProperties
               }
@@ -89,7 +90,7 @@ export function SavScreen({ tickets }: { tickets: PlanningItem[] }) {
             </Link>
           );
         })}
-      </div>
+      </PullToRefresh>
 
       <MobileTabBar />
     </>
