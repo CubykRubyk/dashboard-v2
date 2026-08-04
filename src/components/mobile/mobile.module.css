@@ -372,6 +372,23 @@
   color: #fff;
 }
 
+.filterBar {
+  flex: 0 0 auto;
+  padding: 0 16px 10px;
+}
+
+.filterSelect {
+  width: 100%;
+  border: 1px solid var(--border);
+  border-radius: 11px;
+  background-color: var(--surface);
+  padding: 9px 34px 9px 12px;
+  color: var(--heading);
+  font: inherit;
+  font-size: 12.5px;
+  font-weight: 700;
+}
+
 /* ---------- état vide ---------- */
 
 .empty {

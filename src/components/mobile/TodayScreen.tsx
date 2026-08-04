@@ -24,6 +24,8 @@ function mondayOf(iso: string) {
   return addDaysIso(iso, -weekday);
 }
 
+// Uniquement des interventions ici (voir mobile/page.tsx) — les SAV ont leur propre onglet, pour
+// éviter qu'un même dossier (intervention Dolibarr + SAV créé depuis elle) apparaisse deux fois.
 export function TodayScreen({
   items,
   todayIso,
@@ -48,16 +50,9 @@ export function TodayScreen({
     setSelectedIso(nextStart);
   };
 
-  // Les SAV ouverts restent visibles quel que soit le jour choisi (ils sont "à traiter", pas datés) ;
-  // les interventions, elles, appartiennent à une date précise.
-  const openSav = useMemo(
-    () => items.filter((item) => item.kind === "sav" && item.status !== "Clôturé"),
-    [items],
-  );
   const interventionsByDay = useMemo(() => {
     const map = new Map<string, PlanningItem[]>();
     for (const item of items) {
-      if (item.kind !== "intervention") continue;
       const list = map.get(item.date);
       if (list) list.push(item);
       else map.set(item.date, [item]);
@@ -68,8 +63,6 @@ export function TodayScreen({
   const dayInterventions = (interventionsByDay.get(selectedIso) ?? []).slice().sort((a, b) =>
     (a.time || "99").localeCompare(b.time || "99"),
   );
-  const showSav = selectedIso === todayIso;
-  const visible = showSav ? [...dayInterventions, ...openSav] : dayInterventions;
 
   const dayFormatter = new Intl.DateTimeFormat(LOCALE_TAGS[locale], { weekday: "short" });
   const titleFormatter = new Intl.DateTimeFormat(LOCALE_TAGS[locale], { weekday: "long", day: "numeric", month: "long" });
@@ -103,12 +96,6 @@ export function TodayScreen({
         </div>
         <p className={styles.topStats}>
           <b>{dayInterventions.length}</b> {t("today.stats.interventions")}
-          {showSav && (
-            <>
-              {" · "}
-              <b>{openSav.length}</b> {t("today.stats.openSav")}
-            </>
-          )}
         </p>
       </header>
 
@@ -138,24 +125,16 @@ export function TodayScreen({
       </div>
 
       <PullToRefresh className={styles.pageEnter} key={selectedIso}>
-        {visible.length === 0 && (
+        {dayInterventions.length === 0 && (
           <div className={styles.empty}>
             <CalendarOff aria-hidden size={30} />
             <strong>{t("today.empty")}</strong>
             <p>{t("today.emptyHint")}</p>
           </div>
         )}
-
-        {dayInterventions.length > 0 && <p className={styles.sectionLabel}>{t("today.section.interventions")}</p>}
         {dayInterventions.map((item, index) => (
           <ItemRow key={item.id} item={item} index={index} />
         ))}
-
-        {showSav && openSav.length > 0 && <p className={styles.sectionLabel}>{t("today.section.openSav")}</p>}
-        {showSav &&
-          openSav.map((item, index) => (
-            <ItemRow key={item.id} item={item} index={dayInterventions.length + index} />
-          ))}
       </PullToRefresh>
 
       <MobileTabBar />
