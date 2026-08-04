@@ -33,12 +33,14 @@ services:
       DOCUMENT_TEMPLATE_STORAGE_ROOT_REQUIRE_MOUNT: "true"
       GENERATED_DOCUMENT_STORAGE_ROOT: /app/data/generated-documents
       GENERATED_DOCUMENT_STORAGE_ROOT_REQUIRE_MOUNT: "true"
+      INTERVENTION_PHOTO_STORAGE_ROOT: /app/data/intervention-photos
     ports:
       - "3001:3000"
     volumes:
       - document_data:/app/data/pac-documents
       - document_templates_data:/app/data/document-templates
       - generated_documents_data:/app/data/generated-documents
+      - intervention_photos_data:/app/data/intervention-photos
     networks: [backend]
 
 volumes:
@@ -46,6 +48,7 @@ volumes:
   document_data:
   document_templates_data:
   generated_documents_data:
+  intervention_photos_data:
 
 networks:
   backend:

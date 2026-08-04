@@ -129,6 +129,7 @@ model User {
   createdSavTickets      SavTicket[]         @relation("SavTicketsCreated")
   savHistoryEntries      SavHistoryEntry[]
   dismissedProximitySuggestions SavProximitySuggestion[]
+  uploadedWorkSheetPhotos WorkSheetPhoto[]   @relation("WorkSheetPhotosUploaded")
 }
 
 model Team {
@@ -306,12 +307,34 @@ model WorkSheet {
   createdBy         User                    @relation(fields: [createdById], references: [id], onDelete: Restrict)
   installations     WorkSheetInstallation[]
   items             WorkSheetItem[]
+  photos            WorkSheetPhoto[]
   tags              WorkSheetTag[]
   createdAt         DateTime                @default(now())
   updatedAt         DateTime                @updatedAt
 
   @@index([workDate])
   @@index([archivedAt, createdAt])
+}
+
+// Photos prises sur le chantier depuis le mobile. Même principe que `GeneratedDocument` : les
+// métadonnées (dont le checksum, pour vérifier qu'un fichier n'a pas été altéré) vivent en base,
+// le binaire sur disque sous un nom UUID (voir lib/documents/storage.ts).
+model WorkSheetPhoto {
+  id               String    @id @default(cuid())
+  workSheetId      String
+  workSheet        WorkSheet @relation(fields: [workSheetId], references: [id], onDelete: Cascade)
+  storageName      String    @unique
+  originalFileName String
+  mimeType         String
+  sizeBytes        Int
+  checksumSha256   String
+  label            String    @default("")
+  position         Int       @default(0)
+  uploadedById     String
+  uploadedBy       User      @relation("WorkSheetPhotosUploaded", fields: [uploadedById], references: [id], onDelete: Restrict)
+  createdAt        DateTime  @default(now())
+
+  @@index([workSheetId, position])
 }
 
 model Tag {

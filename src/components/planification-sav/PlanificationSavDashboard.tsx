@@ -53,7 +53,7 @@ import {
   patchSavTicket,
   type ItineraryResult,
 } from "./api";
-import type { NoteToken } from "@/lib/dolibarr/noteFormat";
+import { NoteRichText, type NoteToken } from "@/components/ui/NoteRichText";
 import { getTodayIsoDateParis, groupItemsByDepartment } from "@/lib/geo/departments";
 import { PlanningCalendar } from "./PlanningCalendar";
 import { DepartmentCartogram } from "./DepartmentCartogram";
@@ -2086,22 +2086,6 @@ function NewSavModal({
         <footer className={styles.workflowModalFooter}><button type="button" className="button button-ghost" onClick={onClose}>Annuler</button><button type="button" className="button button-primary" disabled={!canSubmit} onClick={() => onSubmit(draft)}>{submitLabel}</button></footer>
       </section>
     </div>
-  );
-}
-
-function NoteRichText({ tokens }: { tokens: NoteToken[] }) {
-  return (
-    <>
-      {tokens.map((token, index) =>
-        token.kind === "break" ? (
-          <br key={index} />
-        ) : (
-          <span key={index} style={{ fontWeight: token.bold ? 700 : undefined, color: token.color ?? undefined }}>
-            {token.text}
-          </span>
-        ),
-      )}
-    </>
   );
 }
 
