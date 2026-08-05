@@ -5,14 +5,10 @@ import { useRouter } from "next/navigation";
 import { AlertTriangle, ArrowLeft, Building2, Save, X } from "lucide-react";
 
 import type { PlanningItem } from "@/components/planification-sav/mock-data";
+import { useDirectoryCompanies, useDirectoryUsers } from "@/lib/hooks/useDolibarrDirectory";
 
 import { useT } from "./MobilePreferences";
 import styles from "./mobile.module.css";
-
-export interface TechnicianChoice {
-  id: string;
-  name: string;
-}
 
 /** `PlanningItem.date`/`time` → valeur d'un `<input type="datetime-local">`. */
 function toLocalInput(date: string, time: string | undefined, fallbackTime: string) {
@@ -25,13 +21,7 @@ function toLocalInput(date: string, time: string | undefined, fallbackTime: stri
  * atteignable autrement (garde côté page), et le bouton n'apparaît pas dans le détail pour un
  * technicien. Comme sur desktop, l'enregistrement écrit dans Dolibarr.
  */
-export function EditInterventionScreen({
-  item,
-  technicians,
-}: {
-  item: PlanningItem;
-  technicians: TechnicianChoice[];
-}) {
+export function EditInterventionScreen({ item }: { item: PlanningItem }) {
   const t = useT();
   const router = useRouter();
 
@@ -39,13 +29,17 @@ export function EditInterventionScreen({
   const [endAt, setEndAt] = useState(toLocalInput(item.endDate ?? item.date, undefined, "17:00"));
   const [title, setTitle] = useState(item.title);
   const [address, setAddress] = useState(item.address ?? "");
-  const [assigneeUserId, setAssigneeUserId] = useState("");
   const [closed, setClosed] = useState(item.status === "Clôturé");
   const [note, setNote] = useState<string | null>(null);
 
+  // Répertoire importé : favoris à l'ouverture, recherche complète dès qu'on tape.
   const [companyQuery, setCompanyQuery] = useState("");
-  const [companyResults, setCompanyResults] = useState<{ id: string; name: string; address: string }[]>([]);
   const [company, setCompany] = useState<{ id: string; name: string } | null>(null);
+  const { companies: companyResults } = useDirectoryCompanies(companyQuery, !company);
+
+  const [technicianQuery, setTechnicianQuery] = useState("");
+  const [technician, setTechnician] = useState<{ dolibarrId: string; name: string } | null>(null);
+  const { users: technicianResults } = useDirectoryUsers(technicianQuery, !technician);
 
   const [pending, setPending] = useState(false);
   const [error, setError] = useState("");
@@ -67,25 +61,6 @@ export function EditInterventionScreen({
     };
   }, [item.dolibarrEventId, item.reference]);
 
-  // Recherche différée des tiers Dolibarr (`socid` est une référence, pas un texte libre).
-  useEffect(() => {
-    if (companyQuery.trim().length < 2) return;
-    let cancelled = false;
-    const timer = setTimeout(() => {
-      fetch(`/api/dolibarr/thirdparties?q=${encodeURIComponent(companyQuery)}`)
-        .then((response) => (response.ok ? response.json() : { thirdparties: [] }))
-        .then((data) => {
-          if (!cancelled) setCompanyResults(data.thirdparties ?? []);
-        })
-        .catch(() => undefined);
-    }, 350);
-    return () => {
-      cancelled = true;
-      clearTimeout(timer);
-    };
-  }, [companyQuery]);
-
-  const visibleCompanies = companyQuery.trim().length >= 2 ? companyResults : [];
 
   const submit = async () => {
     setPending(true);
@@ -99,7 +74,7 @@ export function EditInterventionScreen({
         title,
         address,
         closed,
-        ...(assigneeUserId ? { assigneeUserId } : {}),
+        ...(technician ? { dolibarrUserId: technician.dolibarrId } : {}),
         ...(note !== null ? { note } : {}),
         ...(company ? { companyId: company.id, companyName: company.name } : {}),
       }),
@@ -188,21 +163,21 @@ export function EditInterventionScreen({
             </span>
           </label>
           {!company
-            && visibleCompanies.map((candidate) => (
+            && companyResults.map((candidate) => (
               <button
                 key={candidate.id}
                 type="button"
                 className={styles.editResult}
                 onClick={() => {
-                  setCompany({ id: candidate.id, name: candidate.name });
-                  setCompanyResults([]);
+                  setCompany({ id: candidate.dolibarrId, name: candidate.name });
+                  setCompanyQuery("");
                 }}
               >
                 <strong>{candidate.name}</strong>
-                {candidate.address && <small>{candidate.address}</small>}
+                {candidate.addressLabel && <small>{candidate.addressLabel}</small>}
               </button>
             ))}
-          {!company && companyQuery.trim().length >= 2 && visibleCompanies.length === 0 && (
+          {!company && companyQuery.trim().length >= 2 && companyResults.length === 0 && (
             <p className={styles.editHint}>{t("edit.companyNone")}</p>
           )}
         </div>
@@ -222,16 +197,37 @@ export function EditInterventionScreen({
         <div className={styles.editCard}>
           <label>
             {t("edit.technician")}
-            <select
-              value={assigneeUserId}
-              onChange={(event) => setAssigneeUserId(event.target.value)}
-            >
-              <option value="">{t("edit.keepTechnician")} ({item.team})</option>
-              {technicians.map((technician) => (
-                <option key={technician.id} value={technician.id}>{technician.name}</option>
-              ))}
-            </select>
+            <span className={styles.editSearchField}>
+              <input
+                value={technician ? technician.name : technicianQuery}
+                onChange={(event) => {
+                  setTechnician(null);
+                  setTechnicianQuery(event.target.value);
+                }}
+                placeholder={`${t("edit.keepTechnician")} (${item.team})`}
+              />
+              {technician && (
+                <button type="button" onClick={() => { setTechnician(null); setTechnicianQuery(""); }}>
+                  <X aria-hidden size={15} />
+                </button>
+              )}
+            </span>
           </label>
+          {!technician
+            && technicianResults.map((candidate) => (
+              <button
+                key={candidate.id}
+                type="button"
+                className={styles.editResult}
+                onClick={() => {
+                  setTechnician({ dolibarrId: candidate.dolibarrId, name: candidate.name });
+                  setTechnicianQuery("");
+                }}
+              >
+                <strong>{candidate.name}</strong>
+                {candidate.job && <small>{candidate.job}</small>}
+              </button>
+            ))}
           <label className={styles.editCheckbox}>
             <input
               type="checkbox"

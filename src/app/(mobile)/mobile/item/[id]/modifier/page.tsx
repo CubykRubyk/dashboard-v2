@@ -4,7 +4,6 @@ import { EditInterventionScreen } from "@/components/mobile/EditInterventionScre
 import { canEditDolibarrIntervention } from "@/lib/auth/permissions";
 import { getSession } from "@/lib/auth/session";
 import { findPlanningItem } from "@/lib/mobile/data";
-import { prisma } from "@/lib/prisma";
 
 export const dynamic = "force-dynamic";
 
@@ -24,11 +23,7 @@ export default async function EditInterventionPage({
   // Seules les interventions Dolibarr sont éditables : un SAV se modifie depuis le desktop.
   if (!item || item.source !== "dolibarr") notFound();
 
-  const technicians = await prisma.user.findMany({
-    where: { active: true, dolibarrUserId: { not: null }, role: { in: ["TECHNICIEN", "OPERATOR"] } },
-    orderBy: { name: "asc" },
-    select: { id: true, name: true },
-  });
-
-  return <EditInterventionScreen item={item} technicians={technicians} />;
+  // Les techniciens viennent du répertoire Dolibarr importé, chargé côté client au fil de la
+  // recherche — plus besoin de les précharger ici.
+  return <EditInterventionScreen item={item} />;
 }

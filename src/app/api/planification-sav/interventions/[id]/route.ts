@@ -27,6 +27,12 @@ const patchSchema = z
     note: z.string().max(20_000),
     /** Id interne du compte technicien, ou `null` pour retirer l'affectation. */
     assigneeUserId: z.string().trim().nullable(),
+    /**
+     * `userownerid` choisi directement dans le répertoire Dolibarr importé — permet d'affecter un
+     * technicien qui n'a pas de compte CRM. Il ne recevra alors aucune notification : il n'y a
+     * personne à notifier (l'interface le signale).
+     */
+    dolibarrUserId: z.string().trim().regex(/^\d*$/, "L’identifiant technicien est numérique.").nullable(),
     /** `socid` Dolibarr de la société cliente, accompagné de son nom pour le miroir local. */
     companyId: z.string().trim().regex(/^\d*$/, "L’identifiant société est numérique.").nullable(),
     companyName: z.string().trim().max(200),
@@ -81,6 +87,29 @@ export async function PATCH(
     return NextResponse.json({ error: "Dolibarr n’est pas configuré." }, { status: 503 });
   }
 
+  // Réaffectation par identifiant Dolibarr direct (répertoire importé) : on récupère le nom pour
+  // le miroir local, et le compte CRM correspondant s'il existe — c'est lui qui sera notifié.
+  let directAssignee: { name: string; crmUserId: string | null } | null = null;
+  if (patch.dolibarrUserId) {
+    const [directoryEntry, crmAccount] = await Promise.all([
+      prisma.dolibarrUser.findUnique({
+        where: { dolibarrId: patch.dolibarrUserId },
+        select: { name: true },
+      }),
+      prisma.user.findFirst({
+        where: { dolibarrUserId: patch.dolibarrUserId },
+        select: { id: true },
+      }),
+    ]);
+    if (!directoryEntry) {
+      return NextResponse.json(
+        { error: "Ce technicien n’est pas dans le répertoire. Relancez l’import depuis les paramètres." },
+        { status: 400 },
+      );
+    }
+    directAssignee = { name: directoryEntry.name, crmUserId: crmAccount?.id ?? null };
+  }
+
   // Réaffectation : on traduit le compte interne choisi en `userownerid` Dolibarr.
   let assignee: { id: string; name: string; dolibarrUserId: string | null } | null = null;
   if (patch.assigneeUserId) {
@@ -119,6 +148,7 @@ export async function PATCH(
       ...(patch.assigneeUserId !== undefined
         ? { ownerId: assignee?.dolibarrUserId ?? null }
         : {}),
+      ...(patch.dolibarrUserId !== undefined ? { ownerId: patch.dolibarrUserId || null } : {}),
       ...(patch.companyId !== undefined ? { companyId: patch.companyId || null } : {}),
       ...(patch.closed !== undefined ? { closed: patch.closed } : {}),
     });
@@ -157,6 +187,9 @@ export async function PATCH(
       ...(patch.assigneeUserId !== undefined
         ? { dolibarrOwnerId: assignee?.dolibarrUserId ?? null, team: assignee?.name ?? "" }
         : {}),
+      ...(patch.dolibarrUserId !== undefined
+        ? { dolibarrOwnerId: patch.dolibarrUserId || null, team: directAssignee?.name ?? "" }
+        : {}),
       // Le nom du tiers accompagne l'identifiant : le miroir local afficherait sinon l'ancienne
       // société jusqu'à la prochaine synchronisation.
       ...(patch.companyId !== undefined ? { company: patch.companyName ?? "" } : {}),
@@ -181,6 +214,21 @@ export async function PATCH(
 
   // Le technicien nouvellement affecté est prévenu — c'est le seul moyen pour lui d'apprendre
   // qu'une intervention lui a été confiée sans ouvrir l'application par hasard.
+  // Affectation par identifiant direct : on ne notifie que s'il existe un compte CRM derrière.
+  if (
+    directAssignee?.crmUserId
+    && patch.dolibarrUserId
+    && patch.dolibarrUserId !== previousOwnerId
+  ) {
+    await notifyUser(directAssignee.crmUserId, {
+      type: "INTERVENTION_ASSIGNED",
+      title: "Nouvelle intervention pour vous",
+      body: [updated.title, updated.company].filter(Boolean).join(" · "),
+      entityType: "InterventionPlanning",
+      entityId: updated.id,
+    });
+  }
+
   if (assignee && assignee.dolibarrUserId !== previousOwnerId) {
     await notifyUser(assignee.id, {
       type: "INTERVENTION_ASSIGNED",

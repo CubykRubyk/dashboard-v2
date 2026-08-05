@@ -254,6 +254,46 @@ model SavAttachment {
   @@index([savTicketId, createdAt])
 }
 
+// Répertoire des utilisateurs Dolibarr, importé pour éviter de saisir `userownerid` à la main et
+// pour alimenter les sélecteurs d'affectation. **Ce ne sont pas des comptes de connexion** : un
+// utilisateur Dolibarr n'a pas forcément sa place dans le CRM (comptabilité, direction…).
+model DolibarrUser {
+  id         String   @id @default(cuid())
+  dolibarrId String   @unique
+  // `lastname` + `firstname`, avec repli sur `login` : sur cette instance `firstname` est souvent
+  // vide et `lastname` porte le nom entier.
+  name       String
+  login      String   @default("")
+  email      String   @default("")
+  job        String   @default("")
+  color      String   @default("")
+  isEmployee Boolean  @default(true)
+  active     Boolean  @default(true)
+  favorite   Boolean  @default(false)
+  syncedAt   DateTime @updatedAt
+
+  @@index([favorite, name])
+  @@index([active, name])
+}
+
+// Répertoire des sociétés clientes (`socid`). Seuls les tiers marqués client sont importés : un
+// fournisseur n'a rien à faire dans le sélecteur de société d'une intervention.
+model DolibarrCompany {
+  id         String   @id @default(cuid())
+  dolibarrId String   @unique
+  name       String
+  address    String   @default("")
+  zip        String   @default("")
+  town       String   @default("")
+  clientCode String   @default("")
+  active     Boolean  @default(true)
+  favorite   Boolean  @default(false)
+  syncedAt   DateTime @updatedAt
+
+  @@index([favorite, name])
+  @@index([active, name])
+}
+
 model InterventionPlanning {
   id              String    @id @default(cuid())
   dolibarrEventId String    @unique
@@ -471,6 +511,9 @@ model AppSettings {
   proximitySuggestionsSyncedAt DateTime?
   // Sauvegarde automatique de la base : `null` (ou 0) = désactivée. Même tandem
   // `*RunAt`/`*Error` que la synchronisation Dolibarr juste au-dessus.
+  // Dernier import du répertoire Dolibarr (utilisateurs + sociétés) et son éventuelle erreur.
+  dolibarrDirectorySyncedAt DateTime?
+  dolibarrDirectoryError    String?
   backupIntervalHours     Int?
   backupLastRunAt         DateTime?
   backupLastError         String?

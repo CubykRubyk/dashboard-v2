@@ -4,6 +4,8 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { AlertTriangle, Building2, PenLine, Save, Search, X } from "lucide-react";
 
+import { useDirectoryCompanies, useDirectoryUsers } from "@/lib/hooks/useDolibarrDirectory";
+
 import type { PlanningItem } from "./mock-data";
 import styles from "./planification-sav.module.css";
 
@@ -27,11 +29,9 @@ function toLocalInput(date: string, time: string | undefined, fallbackTime: stri
  */
 export function InterventionEditor({
   item,
-  technicians,
   onDone,
 }: {
   item: PlanningItem;
-  technicians: TechnicianOption[];
   onDone: () => void;
 }) {
   const router = useRouter();
@@ -45,14 +45,18 @@ export function InterventionEditor({
   );
   const [title, setTitle] = useState(item.title);
   const [address, setAddress] = useState(item.address ?? "");
-  const [assigneeUserId, setAssigneeUserId] = useState("");
   const [closed, setClosed] = useState(item.status === "Clôturé");
   const [note, setNote] = useState<string | null>(null);
 
-  // Société : `socid` est une référence Dolibarr, pas un texte — on choisit un tiers existant.
+  // Société et technicien viennent du **répertoire importé** : favoris d'abord, recherche sur tout
+  // le répertoire dès qu'on tape. Plus d'appel à Dolibarr à chaque frappe.
   const [companyQuery, setCompanyQuery] = useState("");
-  const [companyResults, setCompanyResults] = useState<{ id: string; name: string; address: string }[]>([]);
   const [company, setCompany] = useState<{ id: string; name: string } | null>(null);
+  const { companies: companyResults } = useDirectoryCompanies(companyQuery, editing && !company);
+
+  const [technicianQuery, setTechnicianQuery] = useState("");
+  const [technician, setTechnician] = useState<{ dolibarrId: string; name: string } | null>(null);
+  const { users: technicianResults } = useDirectoryUsers(technicianQuery, editing && !technician);
 
   // La note privée n'est pas dans `PlanningItem` : elle vient de Dolibarr, comme dans le drawer.
   useEffect(() => {
@@ -72,27 +76,6 @@ export function InterventionEditor({
     };
   }, [editing, note, item.dolibarrEventId, item.reference]);
 
-  // Recherche de tiers, différée comme la recherche de matériel.
-  useEffect(() => {
-    if (companyQuery.trim().length < 2) return;
-    let cancelled = false;
-    const timer = setTimeout(() => {
-      fetch(`/api/dolibarr/thirdparties?q=${encodeURIComponent(companyQuery)}`)
-        .then((response) => (response.ok ? response.json() : { thirdparties: [] }))
-        .then((data) => {
-          if (!cancelled) setCompanyResults(data.thirdparties ?? []);
-        })
-        .catch(() => undefined);
-    }, 350);
-    return () => {
-      cancelled = true;
-      clearTimeout(timer);
-    };
-  }, [companyQuery]);
-
-  const visibleCompanies = companyQuery.trim().length >= 2 ? companyResults : [];
-
-  const assignable = technicians.filter((technician) => technician.dolibarrUserId);
 
   const submit = async () => {
     setPending(true);
@@ -107,7 +90,7 @@ export function InterventionEditor({
         address,
         closed,
         // Champ laissé vide = affectation inchangée ; l'API distingue `undefined` de `null`.
-        ...(assigneeUserId ? { assigneeUserId } : {}),
+        ...(technician ? { dolibarrUserId: technician.dolibarrId } : {}),
         ...(note !== null ? { note } : {}),
         ...(company ? { companyId: company.id, companyName: company.name } : {}),
       }),
@@ -199,25 +182,25 @@ export function InterventionEditor({
             </button>
           )}
         </span>
-        {!company && visibleCompanies.map((candidate) => (
+        {!company && companyResults.map((candidate) => (
           <button
             key={candidate.id}
             type="button"
             className={styles.materialResult}
             onClick={() => {
-              setCompany({ id: candidate.id, name: candidate.name });
-              setCompanyResults([]);
+              setCompany({ id: candidate.dolibarrId, name: candidate.name });
+              setCompanyQuery("");
             }}
           >
             <Search aria-hidden size={13} />
             <span className={styles.materialInfo}>
               <strong>{candidate.name}</strong>
-              {candidate.address && <small>{candidate.address}</small>}
+              {candidate.addressLabel && <small>{candidate.addressLabel}</small>}
             </span>
           </button>
         ))}
-        {!company && companyQuery.trim().length >= 2 && visibleCompanies.length === 0 && (
-          <small>Aucune société trouvée. Elle doit exister dans Dolibarr.</small>
+        {!company && companyQuery.trim().length >= 2 && companyResults.length === 0 && (
+          <small>Aucune société trouvée. Lancez l’import dans Paramètres → Dolibarr.</small>
         )}
       </label>
       <label>
@@ -231,20 +214,42 @@ export function InterventionEditor({
       </label>
       <label>
         Technicien
-        <select
-          value={assigneeUserId}
-          onChange={(event) => setAssigneeUserId(event.target.value)}
-        >
-          <option value="">Ne pas changer ({item.team})</option>
-          {assignable.map((technician) => (
-            <option key={technician.id} value={technician.id}>{technician.name}</option>
-          ))}
-        </select>
-        {assignable.length === 0 && (
-          <small>
-            Aucun compte n’a d’identifiant Dolibarr : renseignez-le dans Paramètres → Utilisateurs.
-          </small>
-        )}
+        <span className={styles.materialSearchField}>
+          <Search aria-hidden size={15} />
+          <input
+            value={technician ? technician.name : technicianQuery}
+            onChange={(event) => {
+              setTechnician(null);
+              setTechnicianQuery(event.target.value);
+            }}
+            placeholder={`Ne pas changer (${item.team})`}
+          />
+          {technician && (
+            <button type="button" onClick={() => { setTechnician(null); setTechnicianQuery(""); }}>
+              <X aria-hidden size={14} />
+            </button>
+          )}
+        </span>
+        {!technician && technicianResults.map((candidate) => (
+          <button
+            key={candidate.id}
+            type="button"
+            className={styles.materialResult}
+            onClick={() => {
+              setTechnician({ dolibarrId: candidate.dolibarrId, name: candidate.name });
+              setTechnicianQuery("");
+            }}
+          >
+            <span className={styles.materialInfo}>
+              <strong>{candidate.name}</strong>
+              <small>
+                {candidate.job || "—"}
+                {/* Sans compte CRM, personne à prévenir : autant le dire ici. */}
+                {candidate.hasCrmAccount ? "" : " · ne recevra pas de notification"}
+              </small>
+            </span>
+          </button>
+        ))}
       </label>
       <label className={styles.interventionEditorCheckbox}>
         <input

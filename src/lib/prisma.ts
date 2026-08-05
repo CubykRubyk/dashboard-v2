@@ -1,7 +1,7 @@
 import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "@/generated/prisma/client";
 
-const PRISMA_CLIENT_SIGNATURE = "20260805121700_add_intervention_materials";
+const PRISMA_CLIENT_SIGNATURE = "20260805125429_add_dolibarr_directory";
 
 const globalForPrisma = globalThis as unknown as {
   prisma?: PrismaClient;

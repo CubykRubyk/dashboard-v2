@@ -60,7 +60,7 @@ import { PlanningCalendar } from "./PlanningCalendar";
 import { DepartmentCartogram } from "./DepartmentCartogram";
 import { useToast } from "@/components/layout/ToastProvider";
 import { RowActionMenu } from "@/components/ui/RowActionMenu";
-import { InterventionEditor, type TechnicianOption } from "./InterventionEditor";
+import { InterventionEditor } from "./InterventionEditor";
 import { InterventionMaterials } from "./InterventionMaterials";
 import { SavAttachments } from "./SavAttachments";
 import styles from "./planification-sav.module.css";
@@ -245,7 +245,6 @@ export function PlanificationSavDashboard({
   initialSelectedId = null,
   canManageSav = false,
   canEditIntervention = false,
-  technicians = [],
 }: {
   worksheetCompanies?: string[];
   initialTickets?: PlanningItem[];
@@ -259,8 +258,6 @@ export function PlanificationSavDashboard({
   canManageSav?: boolean;
   /** ADMIN seul : autorise l'édition d'une intervention, qui écrit dans Dolibarr. */
   canEditIntervention?: boolean;
-  /** Comptes pouvant recevoir une intervention (réaffectation). */
-  technicians?: TechnicianOption[];
 }) {
   const router = useRouter();
   const { showToast } = useToast();
@@ -1544,7 +1541,6 @@ export function PlanificationSavDashboard({
           onCreateSavFromIntervention={prepareSavFromIntervention}
           canManageSav={canManageSav}
           canEditIntervention={canEditIntervention}
-          technicians={technicians}
         />
       )}
       {showSavForm && <NewSavModal companies={worksheetCompanies} onClose={() => setShowSavForm(false)} onSubmit={addSav} />}
@@ -1653,7 +1649,6 @@ function DetailDrawer({
   onCreateSavFromIntervention,
   canManageSav,
   canEditIntervention,
-  technicians,
 }: {
   item: PlanningItem;
   action: WorkflowAction;
@@ -1672,7 +1667,6 @@ function DetailDrawer({
   onCreateSavFromIntervention: (item: PlanningItem) => void;
   canManageSav: boolean;
   canEditIntervention: boolean;
-  technicians: TechnicianOption[];
 }) {
   const isExternal = item.source === "dolibarr";
   const eventId = isExternal ? item.dolibarrEventId || item.reference : "";
@@ -1763,7 +1757,7 @@ function DetailDrawer({
             {/* Édition réservée aux administrateurs et aux interventions Dolibarr : c'est la
                 seule action du module qui écrit dans un système externe. */}
             {isExternal && canEditIntervention && (
-              <InterventionEditor item={item} technicians={technicians} onDone={onClose} />
+              <InterventionEditor item={item} onDone={onClose} />
             )}
           </section>
           {/* Matériel à poser : visible par tous ceux qui voient l'intervention (le technicien doit

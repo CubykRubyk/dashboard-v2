@@ -59,7 +59,7 @@ export default async function PlanificationSavPage({
     }
   }
 
-  const [companyRows, ticketRows, teamRows, interventionRows, suggestionRows, headquarters, technicianRows] = await Promise.all([
+  const [companyRows, ticketRows, teamRows, interventionRows, suggestionRows, headquarters] = await Promise.all([
     prisma.workSheet.findMany({
       where: { archivedAt: null },
       select: { company: true },
@@ -84,15 +84,6 @@ export default async function PlanificationSavPage({
       where: { isHeadquarters: true, latitude: { not: null }, longitude: { not: null } },
       select: { name: true, address: true, latitude: true, longitude: true },
     }),
-    // Comptes pouvant recevoir une intervention. Les comptes sans `dolibarrUserId` sont chargés
-    // aussi : l'éditeur les écarte lui-même et sait expliquer pourquoi la liste peut être vide.
-    canEditDolibarrIntervention(sessionUser?.role)
-      ? prisma.user.findMany({
-          where: { active: true, role: { in: ["TECHNICIEN", "OPERATOR"] } },
-          orderBy: { name: "asc" },
-          select: { id: true, name: true, dolibarrUserId: true },
-        })
-      : Promise.resolve([]),
   ]);
 
   const companies = companyRows
@@ -121,7 +112,6 @@ export default async function PlanificationSavPage({
       initialSelectedId={open || null}
       canManageSav={canManageSav(sessionUser?.role)}
       canEditIntervention={canEditDolibarrIntervention(sessionUser?.role)}
-      technicians={technicianRows}
       headquarters={
         headquarters
           ? { name: headquarters.name, address: headquarters.address, coordinates: [headquarters.latitude!, headquarters.longitude!] }

@@ -9,6 +9,9 @@ import { DolibarrSettingsForm } from "@/components/settings/DolibarrSettingsForm
 import { AuditLogSection } from "@/components/settings/AuditLogSection";
 import { BackupSection } from "@/components/settings/BackupSection";
 import { NotificationSettingsForm } from "@/components/settings/NotificationSettingsForm";
+import { DolibarrDirectorySection } from "@/components/settings/DolibarrDirectorySection";
+import { DolibarrUserPicker } from "@/components/settings/DolibarrUserPicker";
+import { companyAddressLabel } from "@/lib/dolibarr/directory-parse";
 import { describeDevice } from "@/lib/notifications/device-label";
 import { getBackupSettings } from "@/lib/backup/service";
 import { listBackups } from "@/lib/backup/storage";
@@ -80,7 +83,7 @@ export default async function SettingsPage({
     (requestedTab === "notifications" && !canManageNotifications(user?.role))
       ? "dolibarr"
       : requestedTab;
-  const [tags, issuers, teams, settings, users, activeTeams] = await Promise.all([
+  const [tags, issuers, teams, settings, directoryUsers, directoryCompanies, favoriteUsers, favoriteCompanies, users, activeTeams, directoryChoices] = await Promise.all([
     activeTab === "tags"
       ? prisma.tag.findMany({
           orderBy: [{ position: "asc" }, { name: "asc" }],
@@ -99,6 +102,33 @@ export default async function SettingsPage({
     activeTab === "dolibarr"
       ? prisma.appSettings.findUnique({ where: { id: 1 } })
       : Promise.resolve(null),
+    // Répertoire Dolibarr : listes plafonnées, l'écran sert à marquer les favoris, pas à
+    // parcourir des centaines de lignes (la recherche complète vit dans les sélecteurs).
+    activeTab === "dolibarr"
+      ? prisma.dolibarrUser.findMany({
+          where: { active: true },
+          orderBy: [{ favorite: "desc" }, { name: "asc" }],
+          take: 200,
+          select: { id: true, dolibarrId: true, name: true, job: true, login: true, favorite: true },
+        })
+      : Promise.resolve([]),
+    activeTab === "dolibarr"
+      ? prisma.dolibarrCompany.findMany({
+          where: { active: true },
+          orderBy: [{ favorite: "desc" }, { name: "asc" }],
+          take: 200,
+          select: {
+            id: true, dolibarrId: true, name: true, address: true, zip: true, town: true,
+            clientCode: true, favorite: true,
+          },
+        })
+      : Promise.resolve([]),
+    activeTab === "dolibarr"
+      ? prisma.dolibarrUser.count({ where: { active: true, favorite: true } })
+      : Promise.resolve(0),
+    activeTab === "dolibarr"
+      ? prisma.dolibarrCompany.count({ where: { active: true, favorite: true } })
+      : Promise.resolve(0),
     activeTab === "users"
       ? prisma.user.findMany({
           orderBy: [{ active: "desc" }, { name: "asc" }],
@@ -107,6 +137,15 @@ export default async function SettingsPage({
       : Promise.resolve([]),
     activeTab === "users"
       ? prisma.team.findMany({ where: { active: true }, orderBy: { name: "asc" } })
+      : Promise.resolve([]),
+    // Répertoire pour le sélecteur d'identifiant Dolibarr (remplace la saisie manuelle).
+    activeTab === "users"
+      ? prisma.dolibarrUser.findMany({
+          where: { active: true, isEmployee: true },
+          orderBy: [{ favorite: "desc" }, { name: "asc" }],
+          take: 300,
+          select: { dolibarrId: true, name: true, job: true },
+        })
       : Promise.resolve([]),
   ]);
 
@@ -235,10 +274,37 @@ export default async function SettingsPage({
           </span>
         </div>
         {user?.role === "ADMIN" ? (
-          <DolibarrSettingsForm
-            initialUrl={settings?.dolibarrUrl || ""}
-            configured={Boolean(settings?.dolibarrUrl && settings.dolibarrApiKeyEncrypted)}
-          />
+          <>
+            <DolibarrSettingsForm
+              initialUrl={settings?.dolibarrUrl || ""}
+              configured={Boolean(settings?.dolibarrUrl && settings.dolibarrApiKeyEncrypted)}
+            />
+            <hr style={{ border: 0, borderTop: "1px solid var(--border)", margin: "22px 0" }} />
+            <DolibarrDirectorySection
+              stats={{
+                users: directoryUsers.length,
+                companies: directoryCompanies.length,
+                favoriteUsers,
+                favoriteCompanies,
+                syncedAt: settings?.dolibarrDirectorySyncedAt?.toISOString() ?? null,
+                error: settings?.dolibarrDirectoryError ?? null,
+              }}
+              users={directoryUsers.map((entry) => ({
+                id: entry.id,
+                dolibarrId: entry.dolibarrId,
+                name: entry.name,
+                detail: [entry.job, entry.login].filter(Boolean).join(" · "),
+                favorite: entry.favorite,
+              }))}
+              companies={directoryCompanies.map((entry) => ({
+                id: entry.id,
+                dolibarrId: entry.dolibarrId,
+                name: entry.name,
+                detail: companyAddressLabel(entry),
+                favorite: entry.favorite,
+              }))}
+            />
+          </>
         ) : (
           <div className="alert alert-danger">Droits administrateur requis.</div>
         )}
@@ -472,11 +538,7 @@ export default async function SettingsPage({
                   </select>
                 </label>
                 <label>Identifiant Dolibarr <small>(pour les techniciens)</small>
-                  <input name="dolibarrUserId" inputMode="numeric" pattern="\d*" placeholder="Ex. 12" />
-                  <small>
-                    « userownerid » du compte Dolibarr. Sans lui, un technicien ne voit aucune de
-                    ses interventions sur le mobile.
-                  </small>
+                  <DolibarrUserPicker name="dolibarrUserId" defaultValue="" choices={directoryChoices} />
                 </label>
                 <label>Mot de passe initial<input name="password" type="password" required minLength={12} placeholder="12 caractères minimum" /></label>
                 <button className="button button-primary">Créer le compte</button>
@@ -525,17 +587,11 @@ export default async function SettingsPage({
                           </select>
                         </label>
                         <label>Identifiant Dolibarr <small>(pour les techniciens)</small>
-                          <input
+                          <DolibarrUserPicker
                             name="dolibarrUserId"
-                            inputMode="numeric"
-                            pattern="\d*"
                             defaultValue={entry.dolibarrUserId ?? ""}
-                            placeholder="Ex. 12"
+                            choices={directoryChoices}
                           />
-                          <small>
-                            « userownerid » du compte Dolibarr. Sans lui, un technicien ne voit
-                            aucune de ses interventions sur le mobile.
-                          </small>
                         </label>
                         <button className="button button-primary button-small">Enregistrer</button>
                       </form>
