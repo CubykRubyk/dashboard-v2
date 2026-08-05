@@ -36,12 +36,11 @@ services:
       INTERVENTION_PHOTO_STORAGE_ROOT: /app/data/intervention-photos
       SAV_ATTACHMENT_STORAGE_ROOT: /app/data/sav-attachments
       DB_BACKUP_STORAGE_ROOT: /app/data/db-backups
-      CRON_SECRET: ${CRON_SECRET}
-      RESEND_API_KEY: ${RESEND_API_KEY}
-      EMAIL_FROM: ${EMAIL_FROM}
-      VAPID_PUBLIC_KEY: ${VAPID_PUBLIC_KEY}
-      VAPID_PRIVATE_KEY: ${VAPID_PRIVATE_KEY}
-      VAPID_SUBJECT: ${VAPID_SUBJECT}
+      # Secret attendu par POST /api/cron/backup (sauvegarde planifiée). Sans lui, la route est
+      # désactivée — le reste de l'application fonctionne normalement.
+      CRON_SECRET: ${CRON_SECRET:-}
+      # Les clés push (VAPID) et la configuration e-mail ne sont plus lues depuis l'environnement :
+      # elles vivent chiffrées en base et se règlent dans Paramètres → Notifications.
     ports:
       - "3001:3000"
     volumes:
