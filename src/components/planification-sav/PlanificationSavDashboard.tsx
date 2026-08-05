@@ -61,6 +61,7 @@ import { DepartmentCartogram } from "./DepartmentCartogram";
 import { useToast } from "@/components/layout/ToastProvider";
 import { RowActionMenu } from "@/components/ui/RowActionMenu";
 import { InterventionEditor, type TechnicianOption } from "./InterventionEditor";
+import { InterventionMaterials } from "./InterventionMaterials";
 import { SavAttachments } from "./SavAttachments";
 import styles from "./planification-sav.module.css";
 
@@ -1765,6 +1766,14 @@ function DetailDrawer({
               <InterventionEditor item={item} technicians={technicians} onDone={onClose} />
             )}
           </section>
+          {/* Matériel à poser : visible par tous ceux qui voient l'intervention (le technicien doit
+              savoir ce qu'il installe et accéder à la doc), modifiable par les administrateurs. */}
+          {isExternal && (
+            <section className={styles.detailSection}>
+              <h3>Matériel à poser</h3>
+              <InterventionMaterials interventionId={item.id} canManage={canEditIntervention} />
+            </section>
+          )}
           <section className={styles.detailSection}>
             <h3>{isExternal ? "Note Dolibarr" : "Description"}</h3>
             {isExternal ? (

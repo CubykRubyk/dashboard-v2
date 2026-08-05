@@ -15,6 +15,8 @@ export interface DolibarrEventPatch {
   note?: string;
   /** `userownerid` du technicien à qui l'intervention est confiée. */
   ownerId?: string | null;
+  /** `socid` : référence de la fiche tiers Dolibarr, jamais un nom libre. */
+  companyId?: string | null;
   /** `true` clôture l'événement (percentage 100), `false` le rouvre. */
   closed?: boolean;
 }
@@ -76,6 +78,7 @@ export function applyEventPatch(
     if ("note" in event) next.note = value;
   }
   if (patch.ownerId !== undefined) next.userownerid = patch.ownerId;
+  if (patch.companyId !== undefined) next.socid = patch.companyId;
   if (patch.closed !== undefined) next.percentage = patch.closed ? "100" : "0";
 
   return next;

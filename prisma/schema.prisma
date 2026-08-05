@@ -275,11 +275,31 @@ model InterventionPlanning {
   // `WorkSheet.dolibarrLastError`), effacée au succès suivant.
   dolibarrLastError String?
   proximitySuggestions SavProximitySuggestion[]
+  materials       InterventionMaterial[]
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
 
   @@index([startAt])
   @@index([dolibarrOwnerId])
+}
+
+// Matériel que le technicien doit poser sur l'intervention. Toujours une référence du catalogue
+// (jamais du texte libre) : c'est ce qui permet de lui présenter la documentation du matériel
+// concerné une fois sur le chantier.
+model InterventionMaterial {
+  id             String               @id @default(cuid())
+  interventionId String
+  intervention   InterventionPlanning @relation(fields: [interventionId], references: [id], onDelete: Cascade)
+  equipmentId    String
+  // `Restrict` : supprimer du catalogue une référence déjà posée sur un chantier doit être refusé,
+  // pas effacer silencieusement l'historique de l'intervention.
+  equipment      Equipment            @relation(fields: [equipmentId], references: [id], onDelete: Restrict)
+  quantity       Int                  @default(1)
+  note           String               @default("")
+  createdAt      DateTime             @default(now())
+
+  @@unique([interventionId, equipmentId])
+  @@index([equipmentId])
 }
 
 model SavProximitySuggestion {
@@ -759,6 +779,7 @@ model Equipment {
   indoorCombinations  SystemCombination[]          @relation("SystemCombinationIndoorEquipment")
   outdoorCombinations SystemCombination[]          @relation("SystemCombinationOutdoorEquipment")
   technicalDocuments  EquipmentTechnicalDocument[]
+  interventionUsages  InterventionMaterial[]
   legacyMappings      LegacyHeatPumpEquipment[]
   createdAt           DateTime                     @default(now())
   updatedAt           DateTime                     @updatedAt

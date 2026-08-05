@@ -10,10 +10,15 @@ export function MobileShell({
   children,
   technicianMode = false,
   unlinked = false,
+  canEditInterventions = false,
 }: { children: React.ReactNode } & Partial<MobileSessionValue>) {
   return (
     <MobilePreferencesProvider>
-      <MobileSessionProvider technicianMode={technicianMode} unlinked={unlinked}>
+      <MobileSessionProvider
+        technicianMode={technicianMode}
+        unlinked={unlinked}
+        canEditInterventions={canEditInterventions}
+      >
       {/* `mobile-shell-root` — classe stable (pas un nom de CSS-module hashé) ciblée depuis
          `globals.css` pour bloquer tout rebond de scroll résiduel sur `<body>`/`<html>`. */}
       <div className={`${styles.shell} mobile-shell-root`}>

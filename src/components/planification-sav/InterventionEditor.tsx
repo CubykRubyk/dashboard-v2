@@ -1,8 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { AlertTriangle, PenLine, Save, X } from "lucide-react";
+import { AlertTriangle, Building2, PenLine, Save, Search, X } from "lucide-react";
 
 import type { PlanningItem } from "./mock-data";
 import styles from "./planification-sav.module.css";
@@ -47,6 +47,50 @@ export function InterventionEditor({
   const [address, setAddress] = useState(item.address ?? "");
   const [assigneeUserId, setAssigneeUserId] = useState("");
   const [closed, setClosed] = useState(item.status === "Clôturé");
+  const [note, setNote] = useState<string | null>(null);
+
+  // Société : `socid` est une référence Dolibarr, pas un texte — on choisit un tiers existant.
+  const [companyQuery, setCompanyQuery] = useState("");
+  const [companyResults, setCompanyResults] = useState<{ id: string; name: string; address: string }[]>([]);
+  const [company, setCompany] = useState<{ id: string; name: string } | null>(null);
+
+  // La note privée n'est pas dans `PlanningItem` : elle vient de Dolibarr, comme dans le drawer.
+  useEffect(() => {
+    if (!editing || note !== null) return;
+    let cancelled = false;
+    const eventId = item.dolibarrEventId || item.reference;
+    fetch(`/api/dolibarr/events/${encodeURIComponent(eventId)}`)
+      .then((response) => (response.ok ? response.json() : { note: "" }))
+      .then((data) => {
+        if (!cancelled) setNote(data.note ?? "");
+      })
+      .catch(() => {
+        if (!cancelled) setNote("");
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [editing, note, item.dolibarrEventId, item.reference]);
+
+  // Recherche de tiers, différée comme la recherche de matériel.
+  useEffect(() => {
+    if (companyQuery.trim().length < 2) return;
+    let cancelled = false;
+    const timer = setTimeout(() => {
+      fetch(`/api/dolibarr/thirdparties?q=${encodeURIComponent(companyQuery)}`)
+        .then((response) => (response.ok ? response.json() : { thirdparties: [] }))
+        .then((data) => {
+          if (!cancelled) setCompanyResults(data.thirdparties ?? []);
+        })
+        .catch(() => undefined);
+    }, 350);
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [companyQuery]);
+
+  const visibleCompanies = companyQuery.trim().length >= 2 ? companyResults : [];
 
   const assignable = technicians.filter((technician) => technician.dolibarrUserId);
 
@@ -64,6 +108,8 @@ export function InterventionEditor({
         closed,
         // Champ laissé vide = affectation inchangée ; l'API distingue `undefined` de `null`.
         ...(assigneeUserId ? { assigneeUserId } : {}),
+        ...(note !== null ? { note } : {}),
+        ...(company ? { companyId: company.id, companyName: company.name } : {}),
       }),
     }).catch(() => null);
 
@@ -126,6 +172,61 @@ export function InterventionEditor({
           value={address}
           onChange={(event) => setAddress(event.target.value)}
           maxLength={300}
+        />
+      </label>
+      <label>
+        Société cliente
+        <span className={styles.materialSearchField}>
+          <Building2 aria-hidden size={15} />
+          <input
+            value={company ? company.name : companyQuery}
+            onChange={(event) => {
+              setCompany(null);
+              setCompanyQuery(event.target.value);
+            }}
+            placeholder={item.company || "Chercher une société Dolibarr…"}
+          />
+          {company && (
+            <button
+              type="button"
+              onClick={() => {
+                setCompany(null);
+                setCompanyQuery("");
+              }}
+              aria-label="Annuler le changement de société"
+            >
+              <X aria-hidden size={14} />
+            </button>
+          )}
+        </span>
+        {!company && visibleCompanies.map((candidate) => (
+          <button
+            key={candidate.id}
+            type="button"
+            className={styles.materialResult}
+            onClick={() => {
+              setCompany({ id: candidate.id, name: candidate.name });
+              setCompanyResults([]);
+            }}
+          >
+            <Search aria-hidden size={13} />
+            <span className={styles.materialInfo}>
+              <strong>{candidate.name}</strong>
+              {candidate.address && <small>{candidate.address}</small>}
+            </span>
+          </button>
+        ))}
+        {!company && companyQuery.trim().length >= 2 && visibleCompanies.length === 0 && (
+          <small>Aucune société trouvée. Elle doit exister dans Dolibarr.</small>
+        )}
+      </label>
+      <label>
+        Note privée
+        <textarea
+          rows={4}
+          value={note ?? ""}
+          onChange={(event) => setNote(event.target.value)}
+          placeholder={note === null ? "Chargement…" : "Note visible dans Dolibarr"}
         />
       </label>
       <label>

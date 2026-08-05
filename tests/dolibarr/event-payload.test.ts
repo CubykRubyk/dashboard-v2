@@ -107,6 +107,21 @@ test("la réaffectation change userownerid", () => {
   assert.equal(cleared.userownerid, null);
 });
 
+test("la société est transmise via socid", () => {
+  // `socid` est une référence vers une fiche tiers, pas un nom : c'est bien un identifiant qui
+  // part, jamais du texte libre.
+  const result = applyEventPatch(event(), { companyId: "731" });
+  assert.equal(result.socid, "731");
+
+  const cleared = applyEventPatch(event(), { companyId: null });
+  assert.equal(cleared.socid, null);
+});
+
+test("sans companyId dans le patch, la société n’est pas touchée", () => {
+  const result = applyEventPatch(event(), { label: "Autre titre" });
+  assert.equal(result.socid, "412");
+});
+
 test("la clôture passe percentage à 100 et la réouverture à 0", () => {
   assert.equal(applyEventPatch(event(), { closed: true }).percentage, "100");
   assert.equal(applyEventPatch(event({ percentage: "100" }), { closed: false }).percentage, "0");

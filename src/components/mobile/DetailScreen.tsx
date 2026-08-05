@@ -9,6 +9,7 @@ import {
   ChevronLeft,
   MapPin,
   Navigation,
+  PenLine,
   Phone,
   RefreshCw,
   UsersRound,
@@ -18,12 +19,15 @@ import { useMobilePreferences } from "./MobilePreferences";
 import { MobileSheet } from "./MobileSheet";
 import { NoteRichText, type NoteToken } from "@/components/ui/NoteRichText";
 import type { PlanningItem } from "@/components/planification-sav/mock-data";
+import { InterventionMaterialsList } from "./InterventionMaterialsList";
+import { useMobileSession } from "./MobileSession";
 import styles from "./mobile.module.css";
 
 const LOCALE_TAGS = { fr: "fr-FR", ro: "ro-RO", ru: "ru-RU" } as const;
 
 export function DetailScreen({ item }: { item: PlanningItem }) {
   const { t, locale } = useMobilePreferences();
+  const { canEditInterventions } = useMobileSession();
   const router = useRouter();
   const isIntervention = item.kind === "intervention";
   const eventId = isIntervention ? item.dolibarrEventId || item.reference : "";
@@ -110,6 +114,18 @@ export function DetailScreen({ item }: { item: PlanningItem }) {
           <ChevronLeft aria-hidden size={19} />
           {t("detail.back")}
         </button>
+        {/* Édition réservée aux administrateurs : elle écrit dans Dolibarr. Le bouton n'existe
+            pas pour un technicien, et la page cible garde la même règle côté serveur. */}
+        {isIntervention && canEditInterventions && (
+          <button
+            type="button"
+            className={styles.navButton}
+            onClick={() => router.push(`/mobile/item/${item.id}/modifier`)}
+            aria-label={t("detail.edit")}
+          >
+            <PenLine aria-hidden size={17} />
+          </button>
+        )}
         <button
           type="button"
           className={styles.navButton}
@@ -198,6 +214,8 @@ export function DetailScreen({ item }: { item: PlanningItem }) {
             </div>
           )}
         </div>
+
+        {isIntervention && <InterventionMaterialsList interventionId={item.id} />}
 
         <div className={styles.noteCard}>
           <small>{t("detail.note")}</small>

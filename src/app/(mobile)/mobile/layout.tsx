@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import { getSession } from "@/lib/auth/session";
-import { canUseMobileApp } from "@/lib/auth/permissions";
+import { canEditDolibarrIntervention, canUseMobileApp } from "@/lib/auth/permissions";
 import { MobileShell } from "@/components/mobile/MobileShell";
 import { getMobileScope, isUnlinkedTechnician } from "@/lib/mobile/scope";
 
@@ -25,6 +25,7 @@ export default async function MobileLayout({
     <MobileShell
       technicianMode={Boolean(scope?.ownWorkOnly)}
       unlinked={isUnlinkedTechnician(scope)}
+      canEditInterventions={canEditDolibarrIntervention(user.role)}
     >
       {children}
     </MobileShell>

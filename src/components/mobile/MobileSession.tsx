@@ -12,19 +12,26 @@ export interface MobileSessionValue {
   technicianMode: boolean;
   /** Technicien sans `dolibarrUserId` : aucune intervention ne peut lui être rattachée. */
   unlinked: boolean;
+  /** ADMIN : peut modifier une intervention depuis le mobile (écrit dans Dolibarr). */
+  canEditInterventions: boolean;
 }
 
 const MobileSessionContext = createContext<MobileSessionValue>({
   technicianMode: false,
   unlinked: false,
+  canEditInterventions: false,
 });
 
 export function MobileSessionProvider({
   technicianMode,
   unlinked,
+  canEditInterventions,
   children,
 }: MobileSessionValue & { children: React.ReactNode }) {
-  const value = useMemo(() => ({ technicianMode, unlinked }), [technicianMode, unlinked]);
+  const value = useMemo(
+    () => ({ technicianMode, unlinked, canEditInterventions }),
+    [technicianMode, unlinked, canEditInterventions],
+  );
   return <MobileSessionContext value={value}>{children}</MobileSessionContext>;
 }
 

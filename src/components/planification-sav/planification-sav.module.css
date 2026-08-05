@@ -2451,3 +2451,89 @@
   flex-wrap: wrap;
   gap: 8px;
 }
+
+/* Matériel à poser (InterventionMaterials.tsx) — visible aussi en lecture seule par le technicien,
+   d'où des styles qui ne supposent pas la présence des commandes d'édition. */
+.materialsWrap { display: grid; gap: 9px; }
+.materialsEmpty,
+.materialsError { margin: 0; font-size: 12.5px; color: var(--muted); }
+.materialsError { color: var(--danger); }
+
+.materialRow {
+  display: grid;
+  gap: 6px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+}
+.materialHead { display: flex; align-items: center; gap: 9px; color: var(--muted); }
+.materialInfo { display: grid; min-width: 0; gap: 1px; text-align: left; }
+.materialInfo strong {
+  overflow: hidden;
+  color: var(--heading);
+  font-size: 13px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.materialInfo small { color: var(--muted); font-size: 11.5px; }
+.materialRemove {
+  display: grid;
+  flex: 0 0 auto;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  margin-left: auto;
+  border: 0;
+  border-radius: 7px;
+  background: none;
+  color: var(--muted);
+  cursor: pointer;
+}
+.materialRemove:hover { background: var(--control-bg); color: var(--danger); }
+
+.materialNoDoc { margin: 0; color: var(--muted); font-size: 11.5px; font-style: italic; }
+.materialDoc {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 6px 9px;
+  border-radius: 8px;
+  background: var(--control-bg);
+  color: var(--primary);
+  font-size: 12.5px;
+  font-weight: 600;
+}
+.materialDoc small { margin-left: auto; color: var(--muted); font-weight: 500; }
+
+.materialSearch { display: grid; gap: 6px; }
+.materialSearchField {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 11px;
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  color: var(--muted);
+}
+.materialSearchField input {
+  width: 100%;
+  border: 0;
+  background: none;
+  color: var(--heading);
+  font-family: inherit;
+  font-size: 13px;
+}
+.materialSearchField input:focus { outline: none; }
+.materialResult {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 8px 11px;
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  background: var(--surface);
+  color: var(--muted);
+  font-family: inherit;
+  cursor: pointer;
+}
+.materialResult:hover { border-color: var(--primary); color: var(--primary); }

@@ -27,6 +27,9 @@ const patchSchema = z
     note: z.string().max(20_000),
     /** Id interne du compte technicien, ou `null` pour retirer l'affectation. */
     assigneeUserId: z.string().trim().nullable(),
+    /** `socid` Dolibarr de la société cliente, accompagné de son nom pour le miroir local. */
+    companyId: z.string().trim().regex(/^\d*$/, "L’identifiant société est numérique.").nullable(),
+    companyName: z.string().trim().max(200),
     closed: z.boolean(),
   })
   .partial();
@@ -116,6 +119,7 @@ export async function PATCH(
       ...(patch.assigneeUserId !== undefined
         ? { ownerId: assignee?.dolibarrUserId ?? null }
         : {}),
+      ...(patch.companyId !== undefined ? { companyId: patch.companyId || null } : {}),
       ...(patch.closed !== undefined ? { closed: patch.closed } : {}),
     });
   } catch (error) {
@@ -153,6 +157,9 @@ export async function PATCH(
       ...(patch.assigneeUserId !== undefined
         ? { dolibarrOwnerId: assignee?.dolibarrUserId ?? null, team: assignee?.name ?? "" }
         : {}),
+      // Le nom du tiers accompagne l'identifiant : le miroir local afficherait sinon l'ancienne
+      // société jusqu'à la prochaine synchronisation.
+      ...(patch.companyId !== undefined ? { company: patch.companyName ?? "" } : {}),
       ...(patch.closed !== undefined ? { status: patch.closed ? "CLOTURE" : "OUVERT" } : {}),
       ...(geocoded ? { latitude: geocoded.latitude, longitude: geocoded.longitude } : {}),
       dolibarrLastError: null,
