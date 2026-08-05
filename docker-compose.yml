@@ -34,6 +34,14 @@ services:
       GENERATED_DOCUMENT_STORAGE_ROOT: /app/data/generated-documents
       GENERATED_DOCUMENT_STORAGE_ROOT_REQUIRE_MOUNT: "true"
       INTERVENTION_PHOTO_STORAGE_ROOT: /app/data/intervention-photos
+      SAV_ATTACHMENT_STORAGE_ROOT: /app/data/sav-attachments
+      DB_BACKUP_STORAGE_ROOT: /app/data/db-backups
+      CRON_SECRET: ${CRON_SECRET}
+      RESEND_API_KEY: ${RESEND_API_KEY}
+      EMAIL_FROM: ${EMAIL_FROM}
+      VAPID_PUBLIC_KEY: ${VAPID_PUBLIC_KEY}
+      VAPID_PRIVATE_KEY: ${VAPID_PRIVATE_KEY}
+      VAPID_SUBJECT: ${VAPID_SUBJECT}
     ports:
       - "3001:3000"
     volumes:
@@ -41,6 +49,8 @@ services:
       - document_templates_data:/app/data/document-templates
       - generated_documents_data:/app/data/generated-documents
       - intervention_photos_data:/app/data/intervention-photos
+      - sav_attachments_data:/app/data/sav-attachments
+      - db_backups_data:/app/data/db-backups
     networks: [backend]
 
 volumes:
@@ -49,6 +59,8 @@ volumes:
   document_templates_data:
   generated_documents_data:
   intervention_photos_data:
+  sav_attachments_data:
+  db_backups_data:
 
 networks:
   backend:

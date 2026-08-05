@@ -8,15 +8,18 @@ import styles from "./mobile.module.css";
 const PULL_THRESHOLD = 64;
 const MAX_PULL = 96;
 
-// Aucun état "réseau" ici — juste `router.refresh()` (relance le server component, redemande les
-// données déjà en base). La resynchro Dolibarr elle-même reste dans page.tsx du desktop (voir
-// `after()`), en tâche de fond ; ceci ne fait que redemander ce qui est déjà disponible.
+// `onRefresh` (optionnel) est attendu avant `router.refresh()` — sert à déclencher une vraie
+// resynchronisation Dolibarr (voir useDolibarrSync) avant de redemander les données locales, sinon
+// le geste ne relit que ce qui était déjà en base (comportement d'origine, insuffisant pour un
+// utilisateur qui ne fait que du mobile — retour d'Ion).
 export function PullToRefresh({
   children,
   className,
+  onRefresh,
 }: {
   children: React.ReactNode;
   className?: string;
+  onRefresh?: () => Promise<unknown>;
 }) {
   const router = useRouter();
   const containerRef = useRef<HTMLDivElement>(null);
@@ -44,8 +47,14 @@ export function PullToRefresh({
       setPull((current) => {
         if (current >= PULL_THRESHOLD) {
           setRefreshing(true);
-          router.refresh();
-          window.setTimeout(() => setRefreshing(false), 600);
+          // Le sync Dolibarr peut prendre plusieurs secondes (voir CLAUDE.md) — le spinner reste
+          // actif jusqu'à la fin réelle, pas un délai fixe arbitraire.
+          Promise.resolve(onRefresh?.())
+            .catch(() => undefined)
+            .finally(() => {
+              router.refresh();
+              setRefreshing(false);
+            });
         }
         return 0;
       });
@@ -59,7 +68,7 @@ export function PullToRefresh({
       el.removeEventListener("touchmove", onTouchMove);
       el.removeEventListener("touchend", onTouchEnd);
     };
-  }, [refreshing, router]);
+  }, [refreshing, router, onRefresh]);
 
   return (
     <div ref={containerRef} className={`${styles.scroll}${className ? ` ${className}` : ""}`}>

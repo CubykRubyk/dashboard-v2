@@ -16,6 +16,28 @@ export const LOCALE_LABELS: Record<Locale, string> = {
 const fr = {
   "tab.today": "Aujourd'hui",
   "tab.sav": "SAV",
+  "tab.worksites": "Chantiers",
+  "tab.library": "Docs",
+  "library.title": "Bibliothèque technique",
+  "library.subtitle": "Manuels et schémas",
+  "library.placeholder": "Référence, fabricant, gamme…",
+  "library.hint": "Saisissez au moins 2 caractères : référence de la pompe, fabricant ou gamme.",
+  "library.empty": "Aucun résultat",
+  "library.emptyHint": "Vérifiez la référence, ou cherchez par fabricant.",
+  "library.noDocument": "Aucun document pour cet équipement.",
+  "worksites.title": "Mes chantiers",
+  "worksites.subtitle": "Fiches envoyées",
+  "worksites.empty": "Aucun chantier",
+  "worksites.emptyHint": "Vos fiches apparaissent ici une fois validées et envoyées vers Dolibarr.",
+  "worksites.photos": "photo(s)",
+  "offline.banner": "Hors ligne — données de la dernière consultation",
+  "push.enable": "Activer les notifications",
+  "push.enabled": "Notifications activées",
+  "push.denied": "Notifications bloquées dans les réglages du téléphone.",
+  "push.unsupported": "Ajoutez l’application à l’écran d’accueil pour recevoir les notifications.",
+  "push.unavailable": "Notifications pas encore configurées côté serveur.",
+  "unlinked.title": "Compte incomplet",
+  "unlinked.body": "Votre compte n’est pas encore rattaché à Dolibarr. Demandez à l’administrateur de renseigner votre identifiant pour voir vos interventions.",
   "tab.calendar": "Agenda",
   "tab.profile": "Profil",
 
@@ -46,6 +68,11 @@ const fr = {
 
   "calendar.title": "Agenda",
   "calendar.subtitle": "Toutes les équipes",
+  "calendar.view.week": "Semaine",
+  "calendar.view.month": "Mois",
+  "calendar.sync.action": "Resynchroniser Dolibarr",
+  "calendar.sync.success": "Données Dolibarr à jour.",
+  "calendar.sync.error": "Synchronisation échouée :",
 
   "detail.back": "Retour",
   "detail.intervention": "Intervention",
@@ -62,6 +89,10 @@ const fr = {
   "detail.loadingNote": "Chargement…",
   "detail.call": "Appeler",
   "detail.route": "Itinéraire",
+  "detail.route.chooseApp": "Ouvrir avec…",
+  "detail.route.appleMaps": "Plans (Apple Maps)",
+  "detail.route.googleMaps": "Google Maps",
+  "detail.route.waze": "Waze",
   "detail.finish": "Terminer l'intervention",
   "detail.notFound": "Élément introuvable",
 
@@ -97,6 +128,9 @@ const fr = {
 
   "common.loading": "Chargement…",
   "common.retry": "Réessayer",
+  "common.continuation": "Suite",
+  "common.choose": "Choisir",
+  "splash.loading": "Chargement de l'application…",
 } as const;
 
 export type TranslationKey = keyof typeof fr;
@@ -104,6 +138,28 @@ export type TranslationKey = keyof typeof fr;
 const ro: Record<TranslationKey, string> = {
   "tab.today": "Azi",
   "tab.sav": "SAV",
+  "tab.worksites": "Șantiere",
+  "tab.library": "Docs",
+  "library.title": "Bibliotecă tehnică",
+  "library.subtitle": "Manuale și scheme",
+  "library.placeholder": "Referință, producător, gamă…",
+  "library.hint": "Scrie cel puțin 2 caractere: referința pompei, producătorul sau gama.",
+  "library.empty": "Niciun rezultat",
+  "library.emptyHint": "Verifică referința sau caută după producător.",
+  "library.noDocument": "Niciun document pentru acest echipament.",
+  "worksites.title": "Șantierele mele",
+  "worksites.subtitle": "Fișe trimise",
+  "worksites.empty": "Niciun șantier",
+  "worksites.emptyHint": "Fișele tale apar aici după ce sunt validate și trimise în Dolibarr.",
+  "worksites.photos": "poză/poze",
+  "offline.banner": "Fără conexiune — date de la ultima vizită",
+  "push.enable": "Activează notificările",
+  "push.enabled": "Notificări active",
+  "push.denied": "Notificările sunt blocate din setările telefonului.",
+  "push.unsupported": "Adaugă aplicația pe ecranul principal ca să primești notificări.",
+  "push.unavailable": "Notificările nu sunt încă configurate pe server.",
+  "unlinked.title": "Cont incomplet",
+  "unlinked.body": "Contul tău nu este încă legat de Dolibarr. Cere administratorului să completeze identificatorul tău ca să-ți vezi intervențiile.",
   "tab.calendar": "Agendă",
   "tab.profile": "Profil",
 
@@ -134,6 +190,11 @@ const ro: Record<TranslationKey, string> = {
 
   "calendar.title": "Agendă",
   "calendar.subtitle": "Toate echipele",
+  "calendar.view.week": "Săptămână",
+  "calendar.view.month": "Lună",
+  "calendar.sync.action": "Resincronizează Dolibarr",
+  "calendar.sync.success": "Date Dolibarr actualizate.",
+  "calendar.sync.error": "Sincronizare eșuată:",
 
   "detail.back": "Înapoi",
   "detail.intervention": "Intervenție",
@@ -150,6 +211,10 @@ const ro: Record<TranslationKey, string> = {
   "detail.loadingNote": "Se încarcă…",
   "detail.call": "Sună",
   "detail.route": "Traseu",
+  "detail.route.chooseApp": "Deschide cu…",
+  "detail.route.appleMaps": "Plans (Apple Maps)",
+  "detail.route.googleMaps": "Google Maps",
+  "detail.route.waze": "Waze",
   "detail.finish": "Finalizează intervenția",
   "detail.notFound": "Element negăsit",
 
@@ -185,11 +250,36 @@ const ro: Record<TranslationKey, string> = {
 
   "common.loading": "Se încarcă…",
   "common.retry": "Reîncearcă",
+  "common.continuation": "Continuare",
+  "common.choose": "Alege",
+  "splash.loading": "Se încarcă aplicația…",
 };
 
 const ru: Record<TranslationKey, string> = {
   "tab.today": "Сегодня",
   "tab.sav": "Заявки",
+  "tab.worksites": "Объекты",
+  "tab.library": "Доки",
+  "library.title": "Техническая библиотека",
+  "library.subtitle": "Руководства и схемы",
+  "library.placeholder": "Артикул, производитель, серия…",
+  "library.hint": "Введите не менее 2 символов: артикул насоса, производитель или серия.",
+  "library.empty": "Ничего не найдено",
+  "library.emptyHint": "Проверьте артикул или ищите по производителю.",
+  "library.noDocument": "Нет документов для этого оборудования.",
+  "worksites.title": "Мои объекты",
+  "worksites.subtitle": "Отправленные акты",
+  "worksites.empty": "Нет объектов",
+  "worksites.emptyHint": "Ваши акты появятся здесь после проверки и отправки в Dolibarr.",
+  "worksites.photos": "фото",
+  "offline.banner": "Нет сети — данные последнего просмотра",
+  "push.enable": "Включить уведомления",
+  "push.enabled": "Уведомления включены",
+  "push.denied": "Уведомления заблокированы в настройках телефона.",
+  "push.unsupported": "Добавьте приложение на главный экран, чтобы получать уведомления.",
+  "push.unavailable": "Уведомления ещё не настроены на сервере.",
+  "unlinked.title": "Профиль не завершён",
+  "unlinked.body": "Ваш профиль ещё не связан с Dolibarr. Попросите администратора указать ваш идентификатор, чтобы видеть свои задания.",
   "tab.calendar": "Календарь",
   "tab.profile": "Профиль",
 
@@ -220,6 +310,11 @@ const ru: Record<TranslationKey, string> = {
 
   "calendar.title": "Календарь",
   "calendar.subtitle": "Все бригады",
+  "calendar.view.week": "Неделя",
+  "calendar.view.month": "Месяц",
+  "calendar.sync.action": "Синхронизировать с Dolibarr",
+  "calendar.sync.success": "Данные Dolibarr обновлены.",
+  "calendar.sync.error": "Синхронизация не удалась:",
 
   "detail.back": "Назад",
   "detail.intervention": "Работа",
@@ -236,6 +331,10 @@ const ru: Record<TranslationKey, string> = {
   "detail.loadingNote": "Загрузка…",
   "detail.call": "Позвонить",
   "detail.route": "Маршрут",
+  "detail.route.chooseApp": "Открыть в…",
+  "detail.route.appleMaps": "Plans (Apple Maps)",
+  "detail.route.googleMaps": "Google Maps",
+  "detail.route.waze": "Waze",
   "detail.finish": "Завершить работу",
   "detail.notFound": "Запись не найдена",
 
@@ -271,6 +370,9 @@ const ru: Record<TranslationKey, string> = {
 
   "common.loading": "Загрузка…",
   "common.retry": "Повторить",
+  "common.continuation": "Продолжение",
+  "common.choose": "Выбрать",
+  "splash.loading": "Загрузка приложения…",
 };
 
 export const DICTIONARIES: Record<Locale, Record<TranslationKey, string>> = { fr, ro, ru };

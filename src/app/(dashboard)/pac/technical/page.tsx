@@ -121,16 +121,24 @@ export default async function TechnicalEquipmentPage({
     <>
       <div className="page-heading">
         <div>
-          <p className="eyebrow">Bibliothèque HVAC</p>
-          <h1>Équipements</h1>
+          <p className="eyebrow">Catalogue PAC</p>
+          <h1>Pompes et équipements</h1>
           <p>
-            Références physiques réutilisables dans les futures combinaisons.
+            Une fiche par référence physique. Les références manquantes peuvent être complétées
+            plus tard.
           </p>
         </div>
         {canManage && (
-          <Link href="/pac/technical/equipment/new" className="button button-primary">
-            <CirclePlus size={17} /> Ajouter un équipement
-          </Link>
+          <div className="page-heading-actions">
+            <Link href="/pac/technical/pumps/new" className="button button-primary">
+              <CirclePlus size={17} /> Ajouter une pompe
+            </Link>
+            {/* Ancien formulaire complet : conservé pour les cas où tous les champs techniques
+                sont connus, mais il n'est plus le parcours par défaut. */}
+            <Link href="/pac/technical/equipment/new" className="button button-ghost">
+              Saisie détaillée
+            </Link>
+          </div>
         )}
       </div>
 

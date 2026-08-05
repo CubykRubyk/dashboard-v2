@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation";
+import { PhotoGalleryButton } from "@/components/worksheets/PhotoGallery";
 import { WorkSheetForm } from "@/components/worksheets/WorkSheetForm";
 import { getSession } from "@/lib/auth/session";
 import { prisma } from "@/lib/prisma";
@@ -13,7 +14,7 @@ export default async function EditWorkSheetPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const [catalog, workSheet, user] = await Promise.all([
+  const [catalog, workSheet, user, photoCount] = await Promise.all([
     getActiveCatalog(),
     prisma.workSheet.findFirst({
       where: { id, archivedAt: null },
@@ -24,6 +25,7 @@ export default async function EditWorkSheetPage({
       },
     }),
     getSession(),
+    prisma.workSheetPhoto.count({ where: { workSheetId: id } }),
   ]);
   if (!workSheet) notFound();
 
@@ -81,6 +83,9 @@ export default async function EditWorkSheetPage({
           <p className="eyebrow">Fiches chantier</p>
           <h1>Modifier la fiche</h1>
           <p>{workSheet.client || "Client non renseigné"} · dernière modification le {workSheet.updatedAt.toLocaleDateString("fr-FR")}</p>
+        </div>
+        <div className="page-heading-actions">
+          <PhotoGalleryButton workSheetId={workSheet.id} photoCount={photoCount} />
         </div>
       </div>
       <WorkSheetForm

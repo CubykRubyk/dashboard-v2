@@ -5,8 +5,10 @@ import Link from "next/link";
 import { CalendarOff, ChevronLeft, ChevronRight } from "lucide-react";
 import { useMobilePreferences } from "./MobilePreferences";
 import { MobileTabBar } from "./MobileTabBar";
+import { UnlinkedAccountNotice } from "./UnlinkedAccountNotice";
 import { PullToRefresh } from "./PullToRefresh";
-import type { PlanningItem } from "@/components/planification-sav/mock-data";
+import { useDolibarrSync } from "./useDolibarrSync";
+import { isOngoingOn, type PlanningItem } from "@/components/planification-sav/mock-data";
 import styles from "./mobile.module.css";
 
 const LOCALE_TAGS = { fr: "fr-FR", ro: "ro-RO", ru: "ru-RU" } as const;
@@ -36,6 +38,7 @@ export function TodayScreen({
   companyName: string;
 }) {
   const { t, locale } = useMobilePreferences();
+  const { triggerSync } = useDolibarrSync();
   const [selectedIso, setSelectedIso] = useState(todayIso);
   const [weekStart, setWeekStart] = useState(() => mondayOf(todayIso));
 
@@ -50,19 +53,20 @@ export function TodayScreen({
     setSelectedIso(nextStart);
   };
 
-  const interventionsByDay = useMemo(() => {
-    const map = new Map<string, PlanningItem[]>();
-    for (const item of items) {
-      const list = map.get(item.date);
-      if (list) list.push(item);
-      else map.set(item.date, [item]);
+  // Une intervention multi-jours (`date`→`endDate`) doit apparaître sur chaque jour de son
+  // intervalle, pas seulement sur son premier jour — sinon elle "disparaît" dès le lendemain.
+  const countForDay = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const iso of weekDays) {
+      counts.set(iso, items.filter((item) => isOngoingOn(item, iso)).length);
     }
-    return map;
-  }, [items]);
+    return counts;
+  }, [items, weekDays]);
 
-  const dayInterventions = (interventionsByDay.get(selectedIso) ?? []).slice().sort((a, b) =>
-    (a.time || "99").localeCompare(b.time || "99"),
-  );
+  const dayInterventions = items
+    .filter((item) => isOngoingOn(item, selectedIso))
+    .slice()
+    .sort((a, b) => (a.time || "99").localeCompare(b.time || "99"));
 
   const dayFormatter = new Intl.DateTimeFormat(LOCALE_TAGS[locale], { weekday: "short" });
   const titleFormatter = new Intl.DateTimeFormat(LOCALE_TAGS[locale], { weekday: "long", day: "numeric", month: "long" });
@@ -87,10 +91,10 @@ export function TodayScreen({
           </h1>
           <div className={styles.weekNav}>
             <button type="button" onClick={() => shiftWeek(-1)} aria-label="Semaine précédente">
-              <ChevronLeft aria-hidden size={18} />
+              <ChevronLeft aria-hidden size={21} />
             </button>
             <button type="button" onClick={() => shiftWeek(1)} aria-label="Semaine suivante">
-              <ChevronRight aria-hidden size={18} />
+              <ChevronRight aria-hidden size={21} />
             </button>
           </div>
         </div>
@@ -101,7 +105,7 @@ export function TodayScreen({
 
       <div className={styles.weekStrip} role="group" aria-label={t("calendar.title")}>
         {weekDays.map((iso) => {
-          const count = (interventionsByDay.get(iso) ?? []).length;
+          const count = countForDay.get(iso) ?? 0;
           const isSelected = iso === selectedIso;
           const isToday = iso === todayIso;
           return (
@@ -124,7 +128,9 @@ export function TodayScreen({
         })}
       </div>
 
-      <PullToRefresh className={styles.pageEnter} key={selectedIso}>
+      <UnlinkedAccountNotice />
+
+      <PullToRefresh className={styles.pageEnter} key={selectedIso} onRefresh={triggerSync}>
         {dayInterventions.length === 0 && (
           <div className={styles.empty}>
             <CalendarOff aria-hidden size={30} />
@@ -133,7 +139,7 @@ export function TodayScreen({
           </div>
         )}
         {dayInterventions.map((item, index) => (
-          <ItemRow key={item.id} item={item} index={index} />
+          <ItemRow key={item.id} item={item} index={index} viewIso={selectedIso} />
         ))}
       </PullToRefresh>
 
@@ -142,11 +148,23 @@ export function TodayScreen({
   );
 }
 
-export function ItemRow({ item, index }: { item: PlanningItem; index: number }) {
+export function ItemRow({
+  item,
+  index,
+  viewIso,
+}: {
+  item: PlanningItem;
+  index: number;
+  // Jour affiché (liste filtrée par jour) — sert uniquement à détecter une intervention multi-jours
+  // qui continue ce jour-là sans y avoir commencé, pour afficher le badge "Suite".
+  viewIso?: string;
+}) {
+  const { t } = useMobilePreferences();
   // Couleur de l'équipe telle qu'elle vient de Dolibarr (`item.color`), comme sur le calendrier
   // desktop ; à défaut, orange pour un SAV et bleu pour une intervention.
   const accent = item.color || (item.kind === "sav" ? "var(--m-orange)" : "var(--primary)");
   const urgent = item.kind === "sav" && item.priority === "Urgente";
+  const isContinuation = Boolean(viewIso && item.date && item.date !== viewIso);
   return (
     <Link
       href={`/mobile/item/${item.id}`}
@@ -161,6 +179,7 @@ export function ItemRow({ item, index }: { item: PlanningItem; index: number }) 
         <strong>{item.title}</strong>
         <small>{[item.company, item.team].filter(Boolean).join(" · ")}</small>
       </span>
+      {isContinuation && <span className={styles.continuationBadge}>{t("common.continuation")}</span>}
       {urgent && <span className={`${styles.statusPill} ${styles.statusUrgent}`}>{item.priority}</span>}
       <ChevronRight aria-hidden size={17} className={styles.rowChevron} />
     </Link>

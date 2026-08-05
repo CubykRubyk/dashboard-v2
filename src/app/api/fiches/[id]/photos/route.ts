@@ -4,7 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { DocumentError } from "@/lib/documents/errors";
 import { removePhoto, writePhoto } from "@/lib/worksheets/photo-storage";
 
-const MAX_PHOTOS_PER_SHEET = 20;
+const MAX_PHOTOS_PER_SHEET = 50;
 
 export async function GET(
   _request: NextRequest,

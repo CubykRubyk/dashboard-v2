@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { getSession } from "@/lib/auth/session";
 import { canManageSav, canViewSav } from "@/lib/auth/permissions";
+import { notifyAdmins } from "@/lib/notifications/create";
 import { prisma } from "@/lib/prisma";
 import { geocodeAddress } from "@/lib/geo/geocode";
 import { PRIORITY_TO_DB, serializeSavTicket, type SavTicketWithRelations } from "@/lib/sav/mappers";
@@ -124,6 +125,17 @@ export async function POST(request: NextRequest) {
       entityId: ticket.id,
       metadata: { reference: ticket.reference, company: ticket.company },
     },
+  });
+
+  // Les administrateurs sont prévenus de tout nouveau SAV, quelle qu'en soit l'origine (ici la
+  // saisie interne, côté formulaire public c'est `api/sav-request`). L'auteur n'a pas besoin de
+  // se notifier lui-même.
+  await notifyAdmins({
+    type: "SAV_CREATED",
+    title: `Nouveau SAV — ${ticket.company}`,
+    body: `${ticket.reference} · ${ticket.title}`,
+    entityType: "SavTicket",
+    entityId: ticket.id,
   });
 
   return NextResponse.json({ ticket: serializeSavTicket(ticket) }, { status: 201 });

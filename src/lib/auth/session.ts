@@ -35,7 +35,13 @@ export async function createSession(user: SessionUser) {
 
   (await cookies()).set(COOKIE_NAME, token, {
     httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
+    // Pas `NODE_ENV === "production"` : le serveur standalone (`.next/standalone/server.js`) force
+    // `NODE_ENV = "production"` lui-même dès la première ligne, indépendamment de la façon dont on
+    // le lance — y compris pour un accès LAN en HTTP simple (test PWA sur téléphone réel, cf.
+    // CLAUDE.md). Un cookie `Secure` ne peut ni être stocké ni renvoyé par le navigateur sur HTTP,
+    // ce qui déconnectait silencieusement dès la première navigation suivant le login. `COOKIE_SECURE`
+    // doit être mis à `"true"` explicitement en production réelle, derrière HTTPS.
+    secure: process.env.COOKIE_SECURE === "true",
     sameSite: "lax",
     path: "/",
     expires: expiresAt,

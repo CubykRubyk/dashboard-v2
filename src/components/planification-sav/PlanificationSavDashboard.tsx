@@ -40,6 +40,7 @@ import {
 } from "lucide-react";
 import {
   buildHeadquartersPlanningItem,
+  isOngoingOn,
   type SavHistoryEntry,
   type SavPlanningDraft,
   type PlanningItem,
@@ -59,6 +60,8 @@ import { PlanningCalendar } from "./PlanningCalendar";
 import { DepartmentCartogram } from "./DepartmentCartogram";
 import { useToast } from "@/components/layout/ToastProvider";
 import { RowActionMenu } from "@/components/ui/RowActionMenu";
+import { InterventionEditor, type TechnicianOption } from "./InterventionEditor";
+import { SavAttachments } from "./SavAttachments";
 import styles from "./planification-sav.module.css";
 
 export interface SavTeam {
@@ -239,6 +242,9 @@ export function PlanificationSavDashboard({
   initialSuggestions = [],
   headquarters = null,
   initialSelectedId = null,
+  canManageSav = false,
+  canEditIntervention = false,
+  technicians = [],
 }: {
   worksheetCompanies?: string[];
   initialTickets?: PlanningItem[];
@@ -248,6 +254,12 @@ export function PlanificationSavDashboard({
   initialSuggestions?: ProximitySuggestion[];
   headquarters?: { name: string; address: string; coordinates: [number, number] } | null;
   initialSelectedId?: string | null;
+  /** ADMIN/OPERATOR : conditionne l'ajout et la suppression de pièces jointes. */
+  canManageSav?: boolean;
+  /** ADMIN seul : autorise l'édition d'une intervention, qui écrit dans Dolibarr. */
+  canEditIntervention?: boolean;
+  /** Comptes pouvant recevoir une intervention (réaffectation). */
+  technicians?: TechnicianOption[];
 }) {
   const router = useRouter();
   const { showToast } = useToast();
@@ -420,11 +432,14 @@ export function PlanificationSavDashboard({
       // Le filtre de période (Aujourd'hui/Demain/Cette semaine) ne s'applique qu'aux interventions
       // Dolibarr planifiées — les SAV n'ont pas de date de planification tant qu'ils sont "à
       // planifier", donc ce filtre ne doit jamais les masquer.
+      // Une intervention multi-jours reste "aujourd'hui"/"cette semaine" tant que la période choisie
+      // recoupe son intervalle [date, endDate], pas seulement son premier jour.
+      const itemEnd = item.endDate ?? item.date;
       const dateMatches =
         item.kind === "sav" ||
         filters.period === "all" ||
-        (filters.period === "week" && item.date >= weekRange.start && item.date <= weekRange.end) ||
-        (filters.period === "today" && item.date === todayIsoDate());
+        (filters.period === "week" && item.date <= weekRange.end && itemEnd >= weekRange.start) ||
+        (filters.period === "today" && isOngoingOn(item, todayIsoDate()));
       const searchMatches =
         !normalizedSearch ||
         [
@@ -1028,7 +1043,11 @@ export function PlanificationSavDashboard({
                   <div className={styles.deptDrilldownGroup}>
                     <h4>Interventions ({selectedDeptGroup!.interventionItems.length})</h4>
                     {selectedDeptGroup!.interventionItems.map((item) => {
-                      const isToday = item.date === getTodayIsoDateParis();
+                      const today = getTodayIsoDateParis();
+                      const isToday = isOngoingOn(item, today);
+                      // En cours depuis un jour précédent (intervention multi-jours) — à distinguer
+                      // visuellement d'une intervention qui démarre aujourd'hui même.
+                      const isContinuation = isToday && item.date !== today;
                       return (
                         <button
                           type="button"
@@ -1040,9 +1059,11 @@ export function PlanificationSavDashboard({
                             <strong>{item.title}</strong>
                             <small>{item.company} · {item.address}</small>
                           </span>
+                          {isContinuation && <span className={styles.continuationBadge}>Suite</span>}
                           {item.date && (
                             <span className={styles.deptDrilldownDate}>
                               {dateFormatter.format(new Date(`${item.date}T12:00:00`))}
+                              {item.endDate && ` → ${dateFormatter.format(new Date(`${item.endDate}T12:00:00`))}`}
                             </span>
                           )}
                           <ChevronRight aria-hidden size={15} />
@@ -1266,7 +1287,10 @@ export function PlanificationSavDashboard({
               </button>
             </div>
           </div>
-          <PlanningCalendar items={filteredItems} onSelectItem={selectItem} />
+          {/* Uniquement les interventions Dolibarr — un SAV créé manuellement peut donner lieu, plus
+             tard, à un événement Dolibarr pour la même intervention ; les deux apparaîtraient sinon
+             en double sur le calendrier. Les SAV restent visibles en Liste/Kanban, pas ici. */}
+          <PlanningCalendar items={filteredInterventions} onSelectItem={selectItem} />
         </section>
       )}
 
@@ -1517,6 +1541,9 @@ export function PlanificationSavDashboard({
           onCloseAction={closeWorkflow}
           onUpdate={updateSavState}
           onCreateSavFromIntervention={prepareSavFromIntervention}
+          canManageSav={canManageSav}
+          canEditIntervention={canEditIntervention}
+          technicians={technicians}
         />
       )}
       {showSavForm && <NewSavModal companies={worksheetCompanies} onClose={() => setShowSavForm(false)} onSubmit={addSav} />}
@@ -1623,6 +1650,9 @@ function DetailDrawer({
   onCloseAction,
   onUpdate,
   onCreateSavFromIntervention,
+  canManageSav,
+  canEditIntervention,
+  technicians,
 }: {
   item: PlanningItem;
   action: WorkflowAction;
@@ -1639,6 +1669,9 @@ function DetailDrawer({
     history: SavHistoryEntry | SavHistoryEntry[],
   ) => void;
   onCreateSavFromIntervention: (item: PlanningItem) => void;
+  canManageSav: boolean;
+  canEditIntervention: boolean;
+  technicians: TechnicianOption[];
 }) {
   const isExternal = item.source === "dolibarr";
   const eventId = isExternal ? item.dolibarrEventId || item.reference : "";
@@ -1726,6 +1759,11 @@ function DetailDrawer({
             )}
             <DetailRow icon={UsersRound} label="Équipe" value={item.team} />
             <DetailRow icon={Wrench} label="Équipement" value={item.equipment} />
+            {/* Édition réservée aux administrateurs et aux interventions Dolibarr : c'est la
+                seule action du module qui écrit dans un système externe. */}
+            {isExternal && canEditIntervention && (
+              <InterventionEditor item={item} technicians={technicians} onDone={onClose} />
+            )}
           </section>
           <section className={styles.detailSection}>
             <h3>{isExternal ? "Note Dolibarr" : "Description"}</h3>
@@ -1745,6 +1783,12 @@ function DetailDrawer({
           </section>
           {!isExternal && (
             <>
+              {/* Photos et documents : déposés par un opérateur, ou par la société cliente
+                  depuis le formulaire public `/sav-request`. */}
+              <section className={styles.detailSection}>
+                <h3>Pièces jointes</h3>
+                <SavAttachments savId={item.id} canManage={canManageSav} />
+              </section>
               <section className={styles.detailSection}>
                 <div className={styles.sectionHeadingRow}>
                   <h3>Actions SAV</h3>

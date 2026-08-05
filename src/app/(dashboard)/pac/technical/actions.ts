@@ -36,6 +36,13 @@ import {
   manufacturerInputSchema,
   productRangeInputSchema,
 } from "@/lib/hvac/validation";
+import { uploadTechnicalDocument } from "@/lib/hvac/document-upload-service";
+import { createSimplePumpRecord } from "@/lib/hvac/simple-pump-repository";
+import { planPumpEquipment } from "@/lib/hvac/simple-pump-service";
+import {
+  simplePumpFormData,
+  simplePumpInputSchema,
+} from "@/lib/hvac/simple-pump-validation";
 
 const catalogPaths = [
   "/pac/technical",
@@ -199,6 +206,66 @@ export async function toggleProductRangeAction(
   } catch (error) {
     return actionErrorState(error, "Impossible de modifier le statut.");
   }
+}
+
+/**
+ * Saisie rapide d'une pompe : un seul formulaire, sans passer par la création séparée des unités
+ * puis d'une combinaison. Voir `simple-pump-service.ts` pour les règles de dérivation des fiches.
+ */
+export async function createSimplePumpAction(
+  _previousState: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  void _previousState;
+  let targetId: string;
+  try {
+    const user = await requireTechnicalCatalogAdmin();
+    const input = simplePumpInputSchema.parse(simplePumpFormData(formData));
+    const planned = planPumpEquipment(input);
+
+    const documentIds = formData
+      .getAll("existingDocumentIds")
+      .map((value) => String(value).trim())
+      .filter(Boolean);
+
+    const pump = await createSimplePumpRecord(input, planned, documentIds, user.id);
+
+    // Manuel importé dans la foulée : les fiches existent déjà, on peut les associer directement.
+    // Un échec d'upload ne doit pas annuler la pompe créée — on remonte le message tel quel, la
+    // pompe reste en base et le document pourra être importé depuis l'écran Documents.
+    const manual = formData.get("manualFile");
+    if (manual instanceof File && manual.size > 0) {
+      try {
+        await uploadTechnicalDocument(
+          manual,
+          {
+            title: `${input.name} — manuel`,
+            type: "INSTALLATION_MANUAL",
+            version: "",
+            documentDate: null,
+            isPrimary: true,
+            active: true,
+            equipmentIds: pump.equipmentIds,
+            systemCombinationIds: [],
+          },
+          user.id,
+        );
+      } catch (error) {
+        revalidateCatalog();
+        return actionErrorState(
+          error,
+          "La pompe a été créée, mais l’import du manuel a échoué. Réimportez-le depuis « Documents ».",
+        );
+      }
+    }
+
+    targetId = pump.equipmentIds[0];
+    revalidateCatalog();
+    revalidatePath("/pac/technical/documents");
+  } catch (error) {
+    return actionErrorState(error, "Impossible de créer la pompe.");
+  }
+  redirect(`/pac/technical/equipment/${targetId}`);
 }
 
 export async function createEquipmentAction(

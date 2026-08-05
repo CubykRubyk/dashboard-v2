@@ -4,8 +4,10 @@ import { useMemo, useState } from "react";
 import Link from "next/link";
 import { ChevronRight, SearchX } from "lucide-react";
 import { useT } from "./MobilePreferences";
+import { MobilePicker } from "./MobilePicker";
 import { MobileTabBar } from "./MobileTabBar";
 import { PullToRefresh } from "./PullToRefresh";
+import { useDolibarrSync } from "./useDolibarrSync";
 import type { PlanningItem } from "@/components/planification-sav/mock-data";
 import styles from "./mobile.module.css";
 
@@ -16,6 +18,7 @@ const PRIORITIES: PlanningItem["priority"][] = ["Urgente", "Haute", "Normale", "
 
 export function SavScreen({ tickets }: { tickets: PlanningItem[] }) {
   const t = useT();
+  const { triggerSync } = useDolibarrSync();
   const [status, setStatus] = useState<StatusFilter>("all");
   const [priority, setPriority] = useState<PriorityFilter>("all");
   const [company, setCompany] = useState("all");
@@ -86,16 +89,19 @@ export function SavScreen({ tickets }: { tickets: PlanningItem[] }) {
 
       {companies.length > 0 && (
         <div className={styles.filterBar}>
-          <select className={styles.filterSelect} value={company} onChange={(event) => setCompany(event.target.value)}>
-            <option value="all">{t("sav.filter.allCompanies")}</option>
-            {companies.map((name) => (
-              <option key={name} value={name}>{name}</option>
-            ))}
-          </select>
+          <MobilePicker
+            value={company}
+            onChange={setCompany}
+            title={t("sav.filter.allCompanies")}
+            options={[
+              { value: "all", label: t("sav.filter.allCompanies") },
+              ...companies.map((name) => ({ value: name, label: name })),
+            ]}
+          />
         </div>
       )}
 
-      <PullToRefresh className={styles.pageEnter} key={`${status}-${priority}-${company}`}>
+      <PullToRefresh className={styles.pageEnter} key={`${status}-${priority}-${company}`} onRefresh={triggerSync}>
         {visible.length === 0 && (
           <div className={styles.empty}>
             <SearchX aria-hidden size={30} />

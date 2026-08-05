@@ -4,11 +4,12 @@ import { useActionState } from "react";
 import { LockKeyhole, LogIn, Mail } from "lucide-react";
 import { login } from "./actions";
 
-export function LoginForm() {
+export function LoginForm({ next }: { next: string }) {
   const [state, formAction, pending] = useActionState(login, {});
 
   return (
     <form action={formAction} className="login-form">
+      <input type="hidden" name="next" value={next} />
       {state.error && (
         <div className="alert alert-danger" role="alert">
           {state.error}
@@ -23,7 +24,7 @@ export function LoginForm() {
             type="email"
             autoComplete="username"
             defaultValue={state.values?.email}
-            placeholder="admin@exemplu.ro"
+            placeholder="prenom.nom@2cenergies.fr"
             required
             autoFocus
           />

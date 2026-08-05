@@ -50,6 +50,14 @@ export interface PlanningItem {
   planningDraft?: SavPlanningDraft;
 }
 
+// Une intervention multi-jours (`date`→`endDate`) doit être considérée comme "en cours" sur chaque
+// jour de son intervalle, pas seulement sur `date` (son premier jour) — sinon elle disparaît des vues
+// "aujourd'hui" (liste, carte, cartogramme, départements, écrans mobiles) dès le lendemain de son début.
+export function isOngoingOn(item: PlanningItem, iso: string): boolean {
+  if (!item.date) return false;
+  return item.date <= iso && iso <= (item.endDate ?? item.date);
+}
+
 export interface ProximitySuggestion {
   id: string;
   interventionId: string;

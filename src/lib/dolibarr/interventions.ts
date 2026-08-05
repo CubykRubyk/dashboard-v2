@@ -69,8 +69,12 @@ export async function syncInterventionPlannings(config: DolibarrConfig): Promise
 
     let team = "";
     let color: string | null = null;
+    // Conservé tel quel : c'est cet identifiant, et non le nom affiché, qui rattache
+    // l'intervention à un compte technicien (`User.dolibarrUserId`).
+    let dolibarrOwnerId: string | null = null;
     if (event.userownerid) {
       const ownerId = String(event.userownerid);
+      dolibarrOwnerId = ownerId;
       if (!ownerCache.has(ownerId)) {
         try {
           const owner = await dolibarrRequest<DolibarrOwner>(config, `/users/${encodeURIComponent(ownerId)}`);
@@ -125,6 +129,7 @@ export async function syncInterventionPlannings(config: DolibarrConfig): Promise
         startAt,
         endAt,
         team,
+        dolibarrOwnerId,
         color,
         status,
       },
@@ -138,6 +143,10 @@ export async function syncInterventionPlannings(config: DolibarrConfig): Promise
         startAt,
         endAt,
         team,
+        // Doit figurer ici aussi, pas seulement dans `create` : les lignes déjà synchronisées
+        // resteraient sinon sans propriétaire, et les techniciens ne verraient aucune de leurs
+        // interventions existantes (le champ ne se remplirait que pour les nouveaux événements).
+        dolibarrOwnerId,
         color,
         status,
       },

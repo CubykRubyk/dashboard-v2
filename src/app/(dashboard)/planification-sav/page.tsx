@@ -1,4 +1,6 @@
 import { after } from "next/server";
+import { canEditDolibarrIntervention, canManageSav } from "@/lib/auth/permissions";
+import { getSession } from "@/lib/auth/session";
 import { prisma } from "@/lib/prisma";
 import { serializeSavTicket } from "@/lib/sav/mappers";
 import { getDolibarrConfig } from "@/lib/dolibarr/client";
@@ -26,6 +28,7 @@ export default async function PlanificationSavPage({
   searchParams: Promise<{ open?: string }>;
 }) {
   const { open } = await searchParams;
+  const sessionUser = await getSession();
   const config = await getDolibarrConfig();
   // La sync Dolibarr (throttle 300ms/adresse geocodée) + le calcul des suggestions de proximité
   // (throttle 500ms/appel OSRM, jusqu'à 50 appels) bloquaient le rendu de la page — la liste SAV
@@ -56,7 +59,7 @@ export default async function PlanificationSavPage({
     }
   }
 
-  const [companyRows, ticketRows, teamRows, interventionRows, suggestionRows, headquarters] = await Promise.all([
+  const [companyRows, ticketRows, teamRows, interventionRows, suggestionRows, headquarters, technicianRows] = await Promise.all([
     prisma.workSheet.findMany({
       where: { archivedAt: null },
       select: { company: true },
@@ -81,6 +84,15 @@ export default async function PlanificationSavPage({
       where: { isHeadquarters: true, latitude: { not: null }, longitude: { not: null } },
       select: { name: true, address: true, latitude: true, longitude: true },
     }),
+    // Comptes pouvant recevoir une intervention. Les comptes sans `dolibarrUserId` sont chargés
+    // aussi : l'éditeur les écarte lui-même et sait expliquer pourquoi la liste peut être vide.
+    canEditDolibarrIntervention(sessionUser?.role)
+      ? prisma.user.findMany({
+          where: { active: true, role: { in: ["TECHNICIEN", "OPERATOR"] } },
+          orderBy: { name: "asc" },
+          select: { id: true, name: true, dolibarrUserId: true },
+        })
+      : Promise.resolve([]),
   ]);
 
   const companies = companyRows
@@ -107,6 +119,9 @@ export default async function PlanificationSavPage({
       dolibarrConfigured={Boolean(config)}
       initialSuggestions={suggestions}
       initialSelectedId={open || null}
+      canManageSav={canManageSav(sessionUser?.role)}
+      canEditIntervention={canEditDolibarrIntervention(sessionUser?.role)}
+      technicians={technicianRows}
       headquarters={
         headquarters
           ? { name: headquarters.name, address: headquarters.address, coordinates: [headquarters.latitude!, headquarters.longitude!] }

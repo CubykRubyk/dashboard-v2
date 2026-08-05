@@ -54,7 +54,8 @@ export async function login(
     name: user.name,
     role: user.role,
   });
-  redirect("/");
+  const next = String(formData.get("next") || "");
+  redirect(next.startsWith("/") && !next.startsWith("//") ? next : "/");
 }
 
 export async function logout() {

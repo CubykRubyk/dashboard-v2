@@ -4,6 +4,7 @@ import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Camera, Check, ChevronLeft, ImagePlus, Loader2, X } from "lucide-react";
 import { useMobilePreferences } from "./MobilePreferences";
+import { MobilePicker } from "./MobilePicker";
 import type { CatalogCategory } from "@/lib/worksheets/types";
 import type { PlanningItem } from "@/components/planification-sav/mock-data";
 import styles from "./mobile.module.css";
@@ -67,7 +68,7 @@ export function FinishScreen({ item, catalog }: { item: PlanningItem; catalog: C
       file,
       previewUrl: URL.createObjectURL(file),
     }));
-    setPhotos((current) => [...current, ...added].slice(0, 20));
+    setPhotos((current) => [...current, ...added].slice(0, 50));
   };
 
   const removePhoto = (id: string) =>
@@ -173,21 +174,14 @@ export function FinishScreen({ item, catalog }: { item: PlanningItem; catalog: C
                       <Check aria-hidden size={13} strokeWidth={3} />
                     </button>
                     {isSelect ? (
-                      <select
-                        className={styles.matSelect}
+                      <MobilePicker
+                        triggerClassName={styles.matSelect}
                         value={selection.variantId}
-                        onChange={(event) =>
-                          update(material.id, {
-                            variantId: event.target.value,
-                            selected: Boolean(event.target.value),
-                          })
-                        }
-                      >
-                        <option value="">{material.name}</option>
-                        {material.variants.map((variant) => (
-                          <option key={variant.id} value={variant.id}>{variant.name}</option>
-                        ))}
-                      </select>
+                        placeholder={material.name}
+                        title={material.name}
+                        onChange={(variantId) => update(material.id, { variantId, selected: Boolean(variantId) })}
+                        options={material.variants.map((variant) => ({ value: variant.id, label: variant.name }))}
+                      />
                     ) : (
                       <span className={`${styles.matName}${selection.selected ? "" : ` ${styles.matNameOff}`}`}>
                         {material.name}
@@ -246,31 +240,45 @@ export function FinishScreen({ item, catalog }: { item: PlanningItem; catalog: C
       ) : (
         <div className={`${styles.scroll} ${styles.pageEnter}`} key="photos">
           <p className={styles.hint}>{t("finish.photosHint")}</p>
-          <div className={styles.photoGrid}>
-            {photos.map((photo, index) => (
-              <div
-                className={styles.photoTile}
-                key={photo.id}
-                style={{ "--i": Math.min(index, 12) } as React.CSSProperties}
-              >
-                {/* Aperçu local (blob:) avant envoi — pas d'optimisation Next possible ici. */}
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={photo.previewUrl} alt="" />
-                <button
-                  type="button"
-                  className={styles.photoRemove}
-                  onClick={() => removePhoto(photo.id)}
-                  aria-label="×"
-                >
-                  <X aria-hidden size={13} />
-                </button>
-              </div>
-            ))}
-            <button type="button" className={styles.photoAdd} onClick={() => fileInputRef.current?.click()}>
-              <ImagePlus aria-hidden size={20} />
+          {photos.length === 0 ? (
+            // Aucune photo encore — le bouton "Ajouter" prend tout l'espace disponible (plus visible,
+            // plus simple à toucher) plutôt qu'une petite case perdue dans une grille vide. Dès la
+            // première photo ajoutée, on repasse à la grille classique (tuile "Ajouter" de taille normale).
+            <button
+              type="button"
+              className={styles.photoAddEmpty}
+              onClick={() => fileInputRef.current?.click()}
+            >
+              <ImagePlus aria-hidden size={32} />
               {t("finish.addPhoto")}
             </button>
-          </div>
+          ) : (
+            <div className={styles.photoGrid}>
+              {photos.map((photo, index) => (
+                <div
+                  className={styles.photoTile}
+                  key={photo.id}
+                  style={{ "--i": Math.min(index, 12) } as React.CSSProperties}
+                >
+                  {/* Aperçu local (blob:) avant envoi — pas d'optimisation Next possible ici. */}
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={photo.previewUrl} alt="" />
+                  <button
+                    type="button"
+                    className={styles.photoRemove}
+                    onClick={() => removePhoto(photo.id)}
+                    aria-label="×"
+                  >
+                    <X aria-hidden size={13} />
+                  </button>
+                </div>
+              ))}
+              <button type="button" className={styles.photoAdd} onClick={() => fileInputRef.current?.click()}>
+                <ImagePlus aria-hidden size={20} />
+                {t("finish.addPhoto")}
+              </button>
+            </div>
+          )}
           <input
             ref={fileInputRef}
             className={styles.hiddenInput}

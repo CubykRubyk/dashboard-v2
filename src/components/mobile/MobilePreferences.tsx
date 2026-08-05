@@ -16,6 +16,12 @@ export type ThemePreference = "light" | "dark" | "auto";
 const THEME_KEY = "theme";
 const LOCALE_KEY = "mobile-locale";
 
+// Couleur de la barre de statut / Dynamic Island — `<meta name="theme-color">` est statique par
+// défaut (fixée une fois dans layout.tsx) ; sans mise à jour ici, elle restait sur sa valeur claire
+// même en thème sombre, laissant une bande blanche visible en haut de l'écran ("nu arata frumos
+// cind e dark theme activata"). Mêmes hex que `--background` clair/sombre dans globals.css.
+const STATUS_BAR_COLOR = { light: "#f9f9f9", dark: "#26283e" } as const;
+
 function applyTheme(preference: ThemePreference) {
   const resolved =
     preference === "auto"
@@ -25,6 +31,7 @@ function applyTheme(preference: ThemePreference) {
       : preference;
   document.documentElement.dataset.theme = resolved;
   document.documentElement.style.colorScheme = resolved;
+  document.querySelector('meta[name="theme-color"]')?.setAttribute("content", STATUS_BAR_COLOR[resolved]);
 }
 
 interface PreferencesValue {

@@ -40,7 +40,25 @@
 }
 
 * { box-sizing: border-box; }
-html, body { min-height: 100%; }
+html, body { min-height: 100%; height: 100%; }
+/* Technique documentée (dev.to/karmasakshi, "Make your PWAs look handsome on iOS") pour le vide en
+   bas d'écran des PWA standalone iOS avec `viewport-fit: cover` : plutôt que de faire deviner à un
+   élément `position: fixed` la vraie hauteur d'écran (source du bug, jamais résolu par une simple
+   unité de longueur — voir CLAUDE.md), on pousse `<html>` lui-même vers le bas avec un padding égal
+   aux zones de sécurité, et on compense sa hauteur pour ne pas laisser de vide en dessous. Sans
+   effet sur desktop/Android (`env(safe-area-inset-*)` vaut 0 hors contexte notch/Dynamic Island). */
+html {
+  min-height: calc(100% + env(safe-area-inset-top));
+  padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+}
+/* Marge de sécurité contre le "rubber-band"/rebond de scroll iOS sur les écrans mobiles — `.shell`
+   a maintenant une hauteur plafonnée (`height: 100%`, pas `min-height`), donc `<body>` ne devrait
+   déjà pas grandir au-delà. Ciblé via une classe stable (pas un nom de CSS-module hashé) ; sans
+   effet sur le desktop. */
+html:has(> body > .mobile-shell-root),
+html:has(> body > .mobile-shell-root) body {
+  overflow: hidden;
+}
 body {
   margin: 0;
   background: var(--background);
@@ -396,11 +414,30 @@ kbd {
   box-shadow: 0 14px 35px rgb(var(--shadow-overlay) / 16%);
 }
 .notification-popover-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
   padding: 8px 9px;
   border-bottom: 1px solid var(--border);
   margin-bottom: 4px;
 }
 .notification-popover-header strong { font-size: 13px; }
+/* Compteur de non-lus, effacé dès l'ouverture du panneau. */
+.notification-count {
+  display: inline-grid;
+  place-items: center;
+  min-width: 19px;
+  height: 19px;
+  padding: 0 6px;
+  border-radius: 9px;
+  background: var(--danger);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+}
+/* Une notification encore non lue est appuyée d'un liseré, pas d'un fond plein : le panneau
+   reste lisible même quand tout est non lu (cas d'une première ouverture après plusieurs jours). */
+.notification-item-unread { border-left: 2px solid var(--primary); }
 .notification-empty { margin: 0; padding: 14px 9px; color: var(--muted); font-size: 12px; text-align: center; }
 .notification-item {
   display: flex;
@@ -734,7 +771,10 @@ kbd {
 
 .auth-page {
   display: grid;
+  /* `100dvh` exclut la barre d'adresse mobile (Safari/Chrome) — avec `100vh` seul, le panneau
+     dépassait la zone visible réelle sur téléphone et forçait un scroll gênant à l'ouverture. */
   min-height: 100vh;
+  min-height: 100dvh;
   grid-template-columns: minmax(420px, 44%) 1fr;
   background: #fff;
 }
@@ -744,9 +784,18 @@ kbd {
   justify-self: center;
   padding: 48px;
 }
-.auth-panel .brand-mark { margin-bottom: 28px; }
+.auth-logo-wrap { display: block; }
+/* Hauteur liée à celle de l'écran (`vh`), pas une valeur fixe — sur mobile, la zone au-dessus de
+   "Bienvenue" est flexible (voir le bloc `@media (max-width: 1050px)` plus bas) et sa hauteur réelle
+   varie beaucoup d'un téléphone à l'autre ; un logo à taille fixe reste minuscule dans cette zone sur
+   un écran haut. `clamp()` le fait grandir avec l'espace disponible, sans dépasser des bornes sûres. */
+.auth-logo { display: block; height: clamp(96px, 18vh, 176px); width: auto; margin: 0 auto 28px; }
 .auth-panel h1 { margin-bottom: 8px; font-size: 32px; }
 .auth-copy { margin-bottom: 28px; }
+/* Un `<input>` avec une taille de police < 16px déclenche un zoom automatique de toute la page au
+   focus sur iOS Safari — la page de login, jamais testée sur téléphone avant, en héritait (corps en
+   14px) et "explosait" visuellement dès qu'on touchait un champ. Scoped à cette page uniquement. */
+.auth-panel .input-shell input { font-size: 16px; }
 .login-form { display: grid; gap: 18px; }
 .field {
   display: grid;
@@ -1670,6 +1719,34 @@ kbd {
   .stats-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .auth-page { grid-template-columns: 1fr; }
   .auth-visual { display: none; }
+  /* Le panneau s'étire sur toute la hauteur (`align-self: stretch` — sans toucher `justify-self`,
+     qui doit rester `center` pour l'axe horizontal, sinon le panneau colle à gauche). Seule la zone
+     du logo est flexible et centre son contenu dedans (`.auth-logo-wrap`) — Bienvenue/formulaire
+     gardent leur taille naturelle juste en dessous. Marge basse conservée pour ne pas coller le
+     bouton au bord de l'écran. */
+  .auth-panel {
+    align-self: stretch;
+    display: flex;
+    flex-direction: column;
+    min-height: 100dvh;
+    padding-top: max(24px, env(safe-area-inset-top));
+    padding-bottom: max(32px, env(safe-area-inset-bottom));
+  }
+  .auth-logo-wrap {
+    /* Plafonné : sans `max-height`, la zone continuait à grandir avec tout l'espace libre restant
+       sur un écran haut, même une fois le logo à sa taille maximale — ça repoussait Bienvenue/le
+       formulaire bien plus bas que nécessaire. Une fois le plafond atteint, le flex restant non
+       utilisé reste en bas (comportement par défaut de la colonne flex), ce qui remonte le bloc
+       Bienvenue/formulaire au lieu de l'espace vide autour du logo. */
+    flex: 1 1 auto;
+    max-height: 230px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 56px;
+    margin-bottom: 22px;
+  }
+  .auth-logo { margin: 0 auto; }
   .worksheet-layout { grid-template-columns: 1fr; }
   .worksheet-report { position: static; }
   .worksheet-filters { grid-template-columns: repeat(2, minmax(0, 1fr)); }
@@ -1806,7 +1883,10 @@ kbd {
   .month-navigation-button { grid-row: 2; }
   .month-navigation-button small { display: none; }
   .month-navigation-actions { grid-row: 3; }
-  .auth-panel { padding: 28px; }
+  .auth-panel { padding-inline: 24px; }
+  .auth-panel h1 { font-size: 25px; }
+  .auth-copy { margin-bottom: 22px; font-size: 13px; }
+  .login-form { gap: 14px; }
 }
 
 /* HVAC technical library */
@@ -1860,6 +1940,29 @@ kbd {
   border-bottom-color: var(--primary);
   color: var(--primary);
 }
+/* Le bascule « Avancé » est un <button> : il doit être indistinguable des onglets voisins,
+   d'où la reprise exacte des mêmes règles (les sélecteurs ci-dessus ne ciblent que les <a>). */
+.technical-catalog-nav button {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  flex: 0 0 auto;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  padding: 11px 13px;
+  background: none;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 700;
+  font-family: inherit;
+  cursor: pointer;
+}
+.technical-catalog-nav button:hover { color: var(--heading); }
+.technical-catalog-nav button svg { transition: transform 0.15s ease; }
+/* Les entrées dépliées sous « Avancé » restent en retrait : présentes, mais visiblement
+   secondaires par rapport au parcours principal. */
+.technical-catalog-nav-nested { font-weight: 600 !important; opacity: 0.8; }
+.technical-catalog-nav-nested:first-of-type { border-left: 1px solid var(--border); }
 .technical-create-details,
 .technical-edit-details { position: relative; }
 .technical-create-details > summary,

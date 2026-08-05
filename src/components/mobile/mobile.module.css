@@ -8,8 +8,13 @@
   /* Accent de navigation du mobile : orange (maquette validée par Ion), distinct du bleu primaire
      réservé aux actions principales. */
   --m-accent: var(--m-orange);
-  position: fixed;
-  inset: 0;
+  /* Plus de `position: fixed` — la technique retenue (voir globals.css, padding sur `<html>` égal
+     aux zones de sécurité) fait que `<html>`/`<body>` représentent déjà exactement la bonne zone ;
+     `.shell` se contente d'un `height: 100%` en flux normal pour la remplir, plafonné comme il faut
+     (contrairement à un `min-height`, qui avait causé une régression — tabBar invisible avec
+     beaucoup de contenu, cf. CLAUDE.md). */
+  width: 100%;
+  height: 100%;
   display: flex;
   flex-direction: column;
   background: var(--background);
@@ -21,7 +26,9 @@
 
 .topBar {
   flex: 0 0 auto;
-  padding: max(14px, env(safe-area-inset-top)) 20px 10px;
+  /* Plus de `env(safe-area-inset-top)` ici — `<html>` (globals.css) réserve déjà cette zone une
+     seule fois ; la redemander doublait la réservation, poussant l'en-tête trop bas. */
+  padding: 14px 20px 10px;
 }
 
 .topEyebrow {
@@ -239,16 +246,24 @@
   text-transform: uppercase;
 }
 
+/* Carte teintée par la couleur exacte du technicien (Dolibarr) — couleur pleine, sans mélange
+   d'opacité ni sheen (retour d'Ion : la couleur affichée doit être exactement celle de Dolibarr,
+   rien d'autre superposé). Même traitement que les blocs pleins de la vue "Semaine" (`.weekEvent`)
+   et le calendrier desktop (`PlanningCalendar`) — texte forcé à une couleur sombre fixe, car suivre
+   le thème (`var(--heading)`, blanc en sombre) ne garantit pas un contraste correct sur une couleur
+   Dolibarr pleine et arbitraire (`--row-text`/`--row-text-muted`, mêmes valeurs qu'avant). */
 .row {
+  --row-text: #14182a;
+  --row-text-muted: rgb(20 24 42 / 62%);
   position: relative;
   display: flex;
   align-items: center;
   gap: 11px;
   width: 100%;
   overflow: hidden;
-  border: 1px solid var(--border);
+  border: 1px solid var(--row-accent, var(--border));
   border-radius: 14px;
-  background: var(--surface);
+  background: var(--row-accent, #fff);
   padding: 12px 13px 12px 17px;
   color: inherit;
   font: inherit;
@@ -258,17 +273,6 @@
   transition: transform .12s ease, border-color .12s ease, background-color .12s ease;
 }
 
-/* `overflow: hidden` sur `.row` garantit que cette barre reste toujours dans le contour arrondi de
-   la carte, quels que soient les arrondis — plus fiable qu'un `border-radius` réglé à la main sur
-   le pseudo-élément (qui débordait légèrement des coins). */
-.row::before {
-  content: "";
-  position: absolute;
-  inset: 0 auto 0 0;
-  width: 4px;
-  background: var(--row-accent, var(--border));
-}
-
 .row:active {
   transform: scale(.985);
 }
@@ -276,7 +280,7 @@
 .rowTime {
   flex: 0 0 auto;
   width: 42px;
-  color: var(--heading);
+  color: var(--row-text, var(--heading));
   font-size: 12.5px;
   font-weight: 800;
   font-variant-numeric: tabular-nums;
@@ -284,7 +288,7 @@
 
 .rowTime small {
   display: block;
-  color: var(--muted);
+  color: var(--row-text-muted, var(--muted));
   font-size: 9.5px;
   font-weight: 700;
 }
@@ -299,7 +303,7 @@
 
 .rowMain strong {
   overflow: hidden;
-  color: var(--heading);
+  color: var(--row-text, var(--heading));
   font-size: 13.5px;
   font-weight: 700;
   text-overflow: ellipsis;
@@ -308,7 +312,7 @@
 
 .rowMain small {
   overflow: hidden;
-  color: var(--muted);
+  color: var(--row-text-muted, var(--muted));
   font-size: 11.5px;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -316,8 +320,8 @@
 
 .rowChevron {
   flex: 0 0 auto;
-  color: var(--muted);
-  opacity: .6;
+  color: var(--row-text-muted, var(--muted));
+  opacity: .8;
 }
 
 /* ---------- pastilles / puces ---------- */
@@ -336,6 +340,21 @@
 .statusOpen { color: var(--m-green); background: color-mix(in srgb, var(--m-green) 14%, transparent); }
 .statusClosed { color: var(--muted); background: var(--control-bg); }
 .statusUrgent { color: var(--m-red); background: color-mix(in srgb, var(--m-red) 13%, transparent); }
+
+/* Intervention multi-jours qui continue (n'a pas commencé ce jour-là) — même famille visuelle que
+   .statusPill mais coloration neutre/orange, pas verte/rouge (ce n'est ni un statut ni une urgence). */
+.continuationBadge {
+  flex: 0 0 auto;
+  border-radius: 999px;
+  padding: 4px 9px;
+  font-size: 9.5px;
+  font-weight: 800;
+  letter-spacing: .02em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  color: #fff;
+  background: var(--m-orange);
+}
 
 /* ---------- filtres ---------- */
 
@@ -377,16 +396,119 @@
   padding: 0 16px 10px;
 }
 
-.filterSelect {
+/* ---------- sélecteur "feuille" (remplace le <select> natif) ---------- */
+
+.pickerTrigger {
+  display: flex;
   width: 100%;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
   border: 1px solid var(--border);
   border-radius: 11px;
   background-color: var(--surface);
-  padding: 9px 34px 9px 12px;
+  padding: 9px 12px;
   color: var(--heading);
   font: inherit;
   font-size: 12.5px;
   font-weight: 700;
+  text-align: left;
+}
+
+.pickerTrigger svg { flex: 0 0 auto; color: var(--muted); }
+.pickerTriggerPlaceholder { color: var(--muted); font-weight: 600; }
+
+.sheetOverlay {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  display: flex;
+  align-items: flex-end;
+  background: rgb(0 0 0 / 45%);
+  animation: sheetOverlayIn .2s ease both;
+}
+
+@keyframes sheetOverlayIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.sheet {
+  width: 100%;
+  max-height: 70vh;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  border-radius: 20px 20px 0 0;
+  background: var(--surface);
+  /* La marge basse réelle vient de `.sheetList` (dernier élément scrollable) — pas doublée ici. */
+  padding-top: 10px;
+  box-shadow: 0 -12px 30px rgb(0 0 0 / 20%);
+  animation: sheetIn .24s cubic-bezier(.22, .61, .36, 1) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sheetOverlay, .sheet { animation: none; }
+}
+
+@keyframes sheetIn {
+  from { transform: translateY(100%); }
+  to { transform: none; }
+}
+
+.sheetHandle {
+  align-self: center;
+  width: 36px;
+  height: 4px;
+  border-radius: 999px;
+  background: var(--border);
+}
+
+.sheetTitle {
+  margin: 0;
+  padding: 0 18px;
+  color: var(--heading);
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.sheetList {
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  /* Marge basse généreuse et fixe (pas juste `env(safe-area-inset-bottom)`, qui vaut 0 hors mode
+     standalone) — 22px restait encore trop proche du bord réel sur le téléphone d'Ion. */
+  padding: 2px 14px calc(44px + env(safe-area-inset-bottom));
+}
+
+/* Chaque option est un bouton visuellement distinct (fond + bordure), pas une ligne de texte nue —
+   plus facile à distinguer/toucher qu'une simple liste. */
+.sheetOption {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  border: 1px solid var(--border);
+  border-radius: 13px;
+  background: var(--control-bg);
+  padding: 14px 14px;
+  color: var(--heading);
+  font: inherit;
+  font-size: 13.5px;
+  font-weight: 600;
+  text-align: left;
+  transition: transform .1s ease;
+}
+
+.sheetOption:active { transform: scale(.98); }
+
+.sheetOption svg { color: var(--primary); }
+.sheetOptionActive {
+  border-color: var(--primary);
+  background: color-mix(in srgb, var(--primary) 12%, var(--control-bg));
+  color: var(--primary);
+  font-weight: 800;
 }
 
 /* ---------- état vide ---------- */
@@ -414,10 +536,14 @@
   display: flex;
   border-top: 1px solid var(--border);
   background: color-mix(in srgb, var(--surface) 88%, transparent);
-  padding: 7px 4px calc(7px + env(safe-area-inset-bottom));
+  /* Plus de `+ env(safe-area-inset-bottom)` ici — c'est maintenant `<html>` (globals.css) qui réserve
+     cette zone, une seule fois ; `<body>`/`.shell` ne l'atteignent plus du tout, donc la redemander
+     ici doublait la réservation (`.tabBar` faisait ~98pt de haut pour ~50pt de contenu réel). */
+  padding: 7px 4px;
   backdrop-filter: blur(18px);
   -webkit-backdrop-filter: blur(18px);
 }
+
 
 .tab {
   position: relative;
@@ -479,7 +605,8 @@
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  padding: max(12px, env(safe-area-inset-top)) 14px 6px;
+  /* Idem `.topBar` — `env(safe-area-inset-top)` déjà réservé par `<html>`, pas à redemander ici. */
+  padding: 12px 14px 6px;
 }
 
 .navButton {
@@ -597,6 +724,17 @@ a.field:active, button.field:active { background: var(--control-bg); }
   white-space: nowrap;
 }
 
+/* Adresse — jamais tronquée sur une seule ligne (contrairement aux autres champs, courts par
+   nature) : une adresse longue passe sur 2 lignes plutôt que d'être coupée avec "…". */
+.fieldValueWrap {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  white-space: normal;
+  line-height: 1.35;
+}
+
 .fieldAction {
   flex: 0 0 auto;
   color: var(--primary);
@@ -659,7 +797,9 @@ a.field:active, button.field:active { background: var(--control-bg); }
 
 .footerBar {
   flex: 0 0 auto;
-  padding: 10px 16px calc(12px + env(safe-area-inset-bottom));
+  /* `env(safe-area-inset-bottom)` vaut 0 hors mode standalone (et sur pas mal d'Android) — sans
+     minimum fixe, le bouton se retrouvait collé au bord du bas là où ce n'était pas compensé. */
+  padding: 10px 16px calc(22px + env(safe-area-inset-bottom));
   border-top: 1px solid var(--border);
   background: var(--surface);
 }
@@ -892,6 +1032,30 @@ a.field:active, button.field:active { background: var(--control-bg); }
 .photoAdd:active { transform: scale(.96); }
 .photoAdd:hover { border-color: var(--primary); }
 
+/* Aucune photo encore — grande zone tactile plutôt qu'une petite case, tant qu'il n'y a rien
+   d'autre à montrer sur l'écran. */
+.photoAddEmpty {
+  display: flex;
+  flex: 1;
+  min-height: 320px;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  border: 1.5px dashed var(--border);
+  border-radius: 18px;
+  background: var(--surface);
+  color: var(--primary);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 800;
+  cursor: pointer;
+  transition: transform .12s ease, border-color .16s ease;
+}
+
+.photoAddEmpty:active { transform: scale(.98); }
+.photoAddEmpty:hover { border-color: var(--primary); }
+
 .hiddenInput { display: none; }
 
 /* ---------- profil ---------- */
@@ -901,6 +1065,8 @@ a.field:active, button.field:active { background: var(--control-bg); }
   flex-direction: column;
   align-items: center;
   gap: 7px;
+  /* `env(safe-area-inset-top)` déjà réservé par `<html>` — pas à redemander ici (même correction
+     qu'sur `.topBar`/`.detailNav`). */
   padding: 16px 0 10px;
 }
 
@@ -1063,10 +1229,10 @@ a.field:active, button.field:active { background: var(--control-bg); }
 .weekNav button {
   display: grid;
   place-items: center;
-  width: 30px;
-  height: 30px;
+  width: 38px;
+  height: 38px;
   border: 1px solid var(--border);
-  border-radius: 9px;
+  border-radius: 11px;
   background: var(--surface);
   color: var(--text);
   cursor: pointer;
@@ -1074,11 +1240,139 @@ a.field:active, button.field:active { background: var(--control-bg); }
 
 .weekNav button:active { transform: scale(.92); }
 
-/* Un bloc plein à la couleur brute du technicien (souvent un pastel choisi au hasard côté Dolibarr)
-   posait deux problèmes : couleurs trop dispersées d'un bloc à l'autre, et parfois illisible (texte
-   blanc sur un vert pâle). Même parti pris que les listes : carte neutre, seule la barre de gauche
-   porte la couleur — lisible quelle que soit la teinte réelle. */
+/* Vue "Semaine" du calendrier — colonnes pleine hauteur, blocs pleinement colorés (contrairement à
+   .agendaBlock ci-dessous) : ici on reproduit volontairement le calendrier desktop (`PlanningCalendar`,
+   FullCalendar) où la couleur du technicien remplit le bloc et le texte reste toujours foncé — ça
+   fonctionne quelle que soit la teinte Dolibarr, pastel ou vive (déjà validé côté desktop). 7 colonnes
+   fixes ne tiennent pas sur un téléphone en portrait : scroll horizontal avec accroche (snap) à la place. */
+.weekScroll {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  -webkit-overflow-scrolling: touch;
+  border-top: 1px solid var(--border);
+}
+
+.weekCol {
+  flex: 0 0 148px;
+  scroll-snap-align: start;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+  padding: 10px 7px 16px;
+  border-right: 1px solid var(--border);
+}
+
+.weekCol:last-child { border-right: 0; }
+
+.weekColToday {
+  background: color-mix(in srgb, var(--primary) 6%, transparent);
+}
+
+.weekColHead {
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding-bottom: 8px;
+  margin-bottom: 2px;
+  border-bottom: 1px solid var(--border);
+}
+
+.weekColDow {
+  font-size: 10px;
+  font-weight: 800;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: .03em;
+}
+
+.weekColNum {
+  font-size: 16px;
+  font-weight: 800;
+  color: var(--heading);
+}
+
+.weekColToday .weekColNum { color: var(--primary); }
+
+.weekEvent {
+  display: block;
+  border-radius: 10px;
+  padding: 9px 9px 10px;
+  color: #141822;
+  font-size: 10.5px;
+  font-weight: 700;
+  line-height: 1.4;
+  text-decoration: none;
+}
+
+.weekEvent strong {
+  /* `strong { color: var(--heading) }` (règle globale, globals.css) s'applique directement à
+     l'élément et gagne sur la couleur héritée du bloc — sans ce `color: inherit` explicite, le titre
+     ressortait blanc/clair (couleur du thème) au lieu de suivre la couleur du bloc coloré. */
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: inherit;
+  font-size: 10.5px;
+  font-weight: 800;
+}
+
+.weekEventTime {
+  display: block;
+  font-size: 9px;
+  font-weight: 800;
+  opacity: .8;
+}
+
+/* L'adresse est l'info que le technicien/admin cherche en premier sur un bloc — jamais tronquée,
+   elle a le droit de faire grandir le bloc (colonnes en hauteur libre, pas de hauteur fixe). */
+.weekEventCompany {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  margin-top: 2px;
+  color: inherit;
+  font-size: 9px;
+  font-weight: 700;
+  opacity: .75;
+}
+
+.weekEventAddress {
+  display: block;
+  margin-top: 1px;
+  color: inherit;
+  font-size: 9.5px;
+  font-weight: 600;
+  line-height: 1.3;
+  opacity: .92;
+}
+
+.weekEventTone {
+  color: #fff;
+}
+
+.weekEventContinuation strong::before {
+  content: "↳ ";
+}
+
+.weekColEmpty {
+  flex: 1;
+  min-height: 30px;
+}
+
+
+/* Même parti pris que `.row` (voir plus haut) — couleur Dolibarr pleine, sans mélange d'opacité ni
+   sheen (retour d'Ion). */
 .agendaBlock {
+  --row-text: #14182a;
+  --row-text-muted: rgb(20 24 42 / 62%);
   position: relative;
   display: flex;
   align-items: center;
@@ -1086,28 +1380,20 @@ a.field:active, button.field:active { background: var(--control-bg); }
   width: 100%;
   min-height: 56px;
   overflow: hidden;
-  border: 1px solid var(--border);
+  border: 1px solid var(--row-accent, var(--border));
   border-radius: 14px;
-  background: var(--surface);
+  background: var(--row-accent, #fff);
   padding: 12px 14px 12px 18px;
-  color: var(--heading);
+  color: var(--row-text);
   text-decoration: none;
   transition: transform .12s ease;
-}
-
-.agendaBlock::before {
-  content: "";
-  position: absolute;
-  inset: 0 auto 0 0;
-  width: 4px;
-  background: var(--row-accent, var(--primary));
 }
 
 .agendaBlock:active { transform: scale(.98); }
 
 .agendaBlockTime {
   flex: 0 0 auto;
-  color: var(--muted);
+  color: var(--row-text-muted);
   font-size: 13px;
   font-weight: 800;
   font-variant-numeric: tabular-nums;
@@ -1121,7 +1407,11 @@ a.field:active, button.field:active { background: var(--control-bg); }
 }
 
 .agendaBlockMain strong {
+  /* `color: inherit` explicite — sinon la règle globale `strong { color: var(--heading) }`
+     (`globals.css`, cible l'élément directement) gagne sur la couleur héritée du bloc. Même gotcha
+     que `.weekEvent strong` plus haut. */
   overflow: hidden;
+  color: inherit;
   font-size: 13.5px;
   font-weight: 800;
   text-overflow: ellipsis;
@@ -1130,7 +1420,7 @@ a.field:active, button.field:active { background: var(--control-bg); }
 
 .agendaBlockMain small {
   overflow: hidden;
-  color: var(--muted);
+  color: var(--row-text-muted);
   font-size: 11.5px;
   font-weight: 600;
   text-overflow: ellipsis;
@@ -1172,3 +1462,323 @@ a.field:active, button.field:active { background: var(--control-bg); }
 @keyframes spin {
   to { transform: rotate(360deg); }
 }
+
+/* Conteneur du contenu réel de l'appli (frère de `.splashOverlay`, position:fixed donc hors du
+   flux) — `display:flex; flex-direction:column; flex:1` reproduit exactement le comportement que
+   `{children}` aurait eu comme enfant direct de `.shell` (topBar/scroll/tabBar restent des flex
+   items normaux, juste un niveau plus bas). Fondu d'entrée démarré en même temps que le fondu de
+   sortie du splash (même délai 1.6s), mais plus long que lui (1.3s vs .7s, voir `.splashOverlay`
+   plus bas) — retour d'Ion : le premier essai à durée égale semblait toujours surgir d'un coup, le
+   fondu de l'appli continue donc après la disparition complète du splash. */
+.appReveal {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  animation: appRevealIn 1.3s ease-out 1.6s both;
+}
+
+@keyframes appRevealIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .appReveal { animation: none; }
+}
+
+/* ---------- écran de démarrage (splash) ---------- */
+/* Port de "Elemente separate (exit)" (logo-scenes-d.jsx) — 5 calques du logo (2C, flamme, flocon,
+   ENERGIES, slogan) qui s'assemblent, puis toute la marque zoome pendant que l'écran entier (fond
+   + halo + logo) s'estompe en transparence, révélant l'appli en dessous — pas un fondu vers du
+   blanc (retour d'Ion : "ecranul trebuie sa faca fade out", pas rester sur un écran blanc plein).
+   Durée totale 2.3s (1.6s assemblage + 0.7s sortie), voir `TOTAL_DURATION_MS` dans
+   MobileSplash.tsx. */
+
+/* `z-index` au-dessus de tout le reste du shell (sheets compris, 200). Fond en dégradé fixe (pas
+   `var(--background)`) — choix de marque délibéré d'Ion, indépendant du thème clair/sombre de
+   l'appli. L'animation de sortie fait disparaître tout ce bloc en fondu (voir plus bas), donc son
+   fond fixe n'a pas besoin de suivre le thème : il finit toujours transparent. */
+.splashOverlay {
+  position: fixed;
+  inset: 0;
+  z-index: 500;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  background: linear-gradient(160deg, #eef5fb 0%, #dfeaf7 45%, #cfe2f4 100%);
+  animation: splashOverlayFadeOut .7s ease-in 1.6s both;
+}
+
+@keyframes splashOverlayFadeOut {
+  from { opacity: 1; }
+  to { opacity: 0; }
+}
+
+/* Halo radial derrière le logo — apparaît en ~1.6s puis tient (le fondu final vient du parent
+   `.splashOverlay`, pas besoin de le refaire ici). */
+.splashGlow {
+  position: absolute;
+  left: 50%;
+  top: 46%;
+  width: 345px;
+  height: 345px;
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  background: radial-gradient(circle, rgb(255 255 255 / 85%) 0%, rgb(200 225 247 / 35%) 45%, rgb(200 225 247 / 0%) 72%);
+  opacity: 0;
+  animation: splashGlowIn 1.3s ease-out forwards;
+}
+
+@keyframes splashGlowIn {
+  from { opacity: 0; }
+  to { opacity: .9; }
+}
+
+/* Groupe des 5 calques du logo — mêmes proportions que le fichier source (640×437 à l'échelle
+   1080px de large ; ici 230px de large, facteur ×0.359). La sortie ne zoome que ce conteneur
+   (×1.45) — le fondu est porté par `.splashOverlay` (parent), qui fait disparaître d'un coup fond,
+   halo et logo ensemble. */
+.splashGroup {
+  position: absolute;
+  left: 50%;
+  top: 46%;
+  width: 230px;
+  height: 157px;
+  transform: translate(-50%, -50%);
+  animation: splashGroupZoom .7s cubic-bezier(.32, 0, .67, 0) 1.6s both;
+}
+
+@keyframes splashGroupZoom {
+  from { transform: translate(-50%, -50%) scale(1); }
+  to { transform: translate(-50%, -50%) scale(1.45); }
+}
+
+.splashPiece2c,
+.splashPieceFlame,
+.splashPieceSnow,
+.splashPieceEnergies,
+.splashPieceTagline {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  opacity: 0;
+  /* Effet "rebond" (dépasse légèrement avant de se stabiliser) — même courbe que l'icône active de
+     `MobileTabBar` (`.tabActive svg`), pour rester dans le même langage de mouvement que le reste
+     de l'appli mobile, plutôt qu'introduire une nouvelle courbe d'accélération. */
+  animation-timing-function: cubic-bezier(.34, 1.56, .64, 1);
+  animation-fill-mode: both;
+}
+
+/* Positions/rotations/échelles de départ + timing — repris de `PIECES` dans logo-scenes-d.jsx,
+   converties à l'échelle 230px (facteur ×0.359 depuis le canevas d'origine à 640px). */
+.splashPiece2c {
+  animation-name: splashPiece2c;
+  animation-duration: .72s;
+  animation-delay: 0s;
+}
+
+@keyframes splashPiece2c {
+  0% { transform: translate(-323px, 0) rotate(-9deg) scale(.9); opacity: 0; }
+  60% { opacity: 1; }
+  100% { transform: translate(0, 0) rotate(0) scale(1); opacity: 1; }
+}
+
+.splashPieceFlame {
+  animation-name: splashPieceFlame;
+  animation-duration: .68s;
+  animation-delay: .24s;
+}
+
+@keyframes splashPieceFlame {
+  0% { transform: translate(0, 234px) rotate(6deg) scale(.5); opacity: 0; }
+  60% { opacity: 1; }
+  100% { transform: translate(0, 0) rotate(0) scale(1); opacity: 1; }
+}
+
+.splashPieceSnow {
+  animation-name: splashPieceSnow;
+  animation-duration: .8s;
+  animation-delay: .4s;
+}
+
+@keyframes splashPieceSnow {
+  0% { transform: translate(180px, -108px) rotate(220deg) scale(.3); opacity: 0; }
+  60% { opacity: 1; }
+  100% { transform: translate(0, 0) rotate(0) scale(1); opacity: 1; }
+}
+
+.splashPieceEnergies {
+  animation-name: splashPieceEnergies;
+  animation-duration: .68s;
+  animation-delay: .68s;
+}
+
+@keyframes splashPieceEnergies {
+  0% { transform: translate(0, 187px) scale(.95); opacity: 0; }
+  60% { opacity: 1; }
+  100% { transform: translate(0, 0) scale(1); opacity: 1; }
+}
+
+.splashPieceTagline {
+  animation-name: splashPieceTagline;
+  animation-duration: .52s;
+  animation-delay: 1.08s;
+}
+
+@keyframes splashPieceTagline {
+  0% { transform: translate(0, 65px); opacity: 0; }
+  60% { opacity: 1; }
+  100% { transform: translate(0, 0); opacity: 1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .splashOverlay { animation: none; }
+  .splashGlow { animation: none; opacity: .9; }
+  .splashGroup { animation: none; }
+  .splashPiece2c,
+  .splashPieceFlame,
+  .splashPieceSnow,
+  .splashPieceEnergies,
+  .splashPieceTagline {
+    animation: none;
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* Bandeau « compte incomplet » (technicien sans rattachement Dolibarr) — voir
+   UnlinkedAccountNotice.tsx. Couleurs fixes plutôt que variables de thème : le message doit
+   rester lisible et identique en clair comme en sombre. */
+.noticeWarning {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin: 12px 16px 0;
+  padding: 12px 14px;
+  border: 1px solid #f6dfa8;
+  border-radius: 12px;
+  background: #fff8e8;
+  color: #7a4a00;
+}
+.noticeWarning strong { display: block; font-size: 13.5px; }
+.noticeWarning p { margin: 3px 0 0; font-size: 12.5px; line-height: 1.45; }
+
+/* Bandeau hors ligne (ServiceWorkerRegistrar.tsx). Affiché en haut de l'écran, au-dessus du
+   contenu : l'utilisateur doit savoir que ce qu'il lit peut dater. */
+.offlineBanner {
+  position: sticky;
+  top: 0;
+  z-index: 40;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  padding: 7px 12px;
+  background: #4c5261;
+  color: #fff;
+  font-size: 12.5px;
+  font-weight: 600;
+}
+
+/* Activation des notifications (PushToggle.tsx), dans l'écran Profil. */
+.pushButton {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 13px 15px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--control-bg);
+  color: var(--heading);
+  font-size: 14px;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+}
+.pushButton:disabled { opacity: 0.6; }
+.pushHint {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin: 0;
+  padding: 11px 14px;
+  border-radius: 12px;
+  background: var(--control-bg);
+  color: var(--muted);
+  font-size: 12.5px;
+  line-height: 1.45;
+}
+
+/* Bibliothèque technique mobile (LibraryScreen.tsx). */
+.librarySearch {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  margin: 10px 16px 4px;
+  padding: 10px 13px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--control-bg);
+  color: var(--muted);
+}
+.librarySearch input {
+  width: 100%;
+  border: 0;
+  background: none;
+  color: var(--heading);
+  font-family: inherit;
+}
+.librarySearch input:focus { outline: none; }
+.libraryHint {
+  margin: 18px 20px;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.5;
+  text-align: center;
+}
+.libraryCard {
+  margin: 0 16px 10px;
+  padding: 13px 15px;
+  border: 1px solid var(--border);
+  border-radius: 13px;
+  background: var(--surface);
+}
+.libraryCardHead {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+}
+.libraryCardHead strong { color: var(--heading); font-size: 14.5px; }
+.libraryCardHead span { color: var(--muted); font-size: 11.5px; }
+.libraryCardMeta {
+  margin: 3px 0 10px;
+  color: var(--muted);
+  font-size: 12.5px;
+  line-height: 1.4;
+}
+.libraryNoDoc { margin: 0; color: var(--muted); font-size: 12px; font-style: italic; }
+.libraryDoc {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 11px;
+  border-radius: 10px;
+  background: var(--control-bg);
+  color: var(--m-accent);
+}
+.libraryDoc + .libraryDoc { margin-top: 6px; }
+.libraryDocBody { display: grid; min-width: 0; gap: 1px; }
+.libraryDocBody strong {
+  overflow: hidden;
+  color: var(--heading);
+  font-size: 13px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.libraryDocBody small { color: var(--muted); font-size: 11.5px; }

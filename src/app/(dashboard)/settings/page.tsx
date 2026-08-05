@@ -1,14 +1,19 @@
 import Link from "next/link";
 import Image from "next/image";
-import { Building2, CirclePlus, History, KeyRound, Link2, Pencil, Power, PowerOff, Tags, UserCog, UsersRound } from "lucide-react";
+import { BellRing, Building2, CirclePlus, DatabaseBackup, History, KeyRound, Link2, Pencil, Power, PowerOff, Tags, UserCog, UsersRound } from "lucide-react";
 import { DismissibleDetails } from "@/components/ui/DismissibleDetails";
 import { GxonModal } from "@/components/ui/GxonModal";
 import { DeleteTagButton } from "@/components/settings/DeleteTagButton";
 import { DeleteTeamButton } from "@/components/settings/DeleteTeamButton";
 import { DolibarrSettingsForm } from "@/components/settings/DolibarrSettingsForm";
 import { AuditLogSection } from "@/components/settings/AuditLogSection";
+import { BackupSection } from "@/components/settings/BackupSection";
+import { NotificationSettingsForm } from "@/components/settings/NotificationSettingsForm";
+import { describeDevice } from "@/lib/notifications/device-label";
+import { getBackupSettings } from "@/lib/backup/service";
+import { listBackups } from "@/lib/backup/storage";
 import { getSession } from "@/lib/auth/session";
-import { canManageUsers, canViewAuditLog } from "@/lib/auth/permissions";
+import { canManageBackups, canManageNotifications, canManageUsers, canViewAuditLog } from "@/lib/auth/permissions";
 import { prisma } from "@/lib/prisma";
 import {
   adminResetPassword,
@@ -41,6 +46,15 @@ function dateInputValue(value: Date | null) {
   return value ? value.toISOString().slice(0, 10) : "";
 }
 
+// Nom de la base, demandé comme confirmation avant une restauration (opération destructive).
+function databaseName() {
+  try {
+    return decodeURIComponent(new URL(process.env.DATABASE_URL ?? "").pathname.replace(/^\//, ""));
+  } catch {
+    return "";
+  }
+}
+
 export default async function SettingsPage({
   searchParams,
 }: {
@@ -50,12 +64,20 @@ export default async function SettingsPage({
   const tab = resolvedSearchParams.tab;
   const user = await getSession();
   const requestedTab =
-    tab === "tags" || tab === "issuers" || tab === "teams" || tab === "journal" || tab === "users"
+    tab === "tags" ||
+    tab === "issuers" ||
+    tab === "teams" ||
+    tab === "journal" ||
+    tab === "users" ||
+    tab === "backup" ||
+    tab === "notifications"
       ? tab
       : "dolibarr";
   const activeTab =
     (requestedTab === "journal" && !canViewAuditLog(user?.role)) ||
-    (requestedTab === "users" && !canManageUsers(user?.role))
+    (requestedTab === "users" && !canManageUsers(user?.role)) ||
+    (requestedTab === "backup" && !canManageBackups(user?.role)) ||
+    (requestedTab === "notifications" && !canManageNotifications(user?.role))
       ? "dolibarr"
       : requestedTab;
   const [tags, issuers, teams, settings, users, activeTeams] = await Promise.all([
@@ -85,6 +107,35 @@ export default async function SettingsPage({
       : Promise.resolve([]),
     activeTab === "users"
       ? prisma.team.findMany({ where: { active: true }, orderBy: { name: "asc" } })
+      : Promise.resolve([]),
+  ]);
+
+  // Chargées côté serveur comme les autres sections (pas de fetch dans un effet client).
+  const [backupFiles, backupSettings, notificationSettings, pushDevices] = await Promise.all([
+    activeTab === "backup" ? listBackups() : Promise.resolve([]),
+    activeTab === "backup" ? getBackupSettings() : Promise.resolve(null),
+    activeTab === "notifications"
+      ? prisma.appSettings.findUnique({
+          where: { id: 1 },
+          select: {
+            vapidPublicKey: true,
+            vapidPrivateKeyEncrypted: true,
+            vapidSubject: true,
+            resendApiKeyEncrypted: true,
+            emailFrom: true,
+          },
+        })
+      : Promise.resolve(null),
+    activeTab === "notifications"
+      ? prisma.pushSubscription.findMany({
+          orderBy: { createdAt: "desc" },
+          select: {
+            id: true,
+            userAgent: true,
+            createdAt: true,
+            user: { select: { name: true, email: true } },
+          },
+        })
       : Promise.resolve([]),
   ]);
 
@@ -134,6 +185,24 @@ export default async function SettingsPage({
             aria-current={activeTab === "users" ? "page" : undefined}
           >
             <UserCog size={17} /> Utilisateurs
+          </Link>
+        )}
+        {canManageNotifications(user?.role) && (
+          <Link
+            href="/settings?tab=notifications"
+            className={activeTab === "notifications" ? "active" : ""}
+            aria-current={activeTab === "notifications" ? "page" : undefined}
+          >
+            <BellRing size={17} /> Notifications
+          </Link>
+        )}
+        {canManageBackups(user?.role) && (
+          <Link
+            href="/settings?tab=backup"
+            className={activeTab === "backup" ? "active" : ""}
+            aria-current={activeTab === "backup" ? "page" : undefined}
+          >
+            <DatabaseBackup size={17} /> Sauvegarde
           </Link>
         )}
         {canViewAuditLog(user?.role) && (
@@ -402,6 +471,13 @@ export default async function SettingsPage({
                     ))}
                   </select>
                 </label>
+                <label>Identifiant Dolibarr <small>(pour les techniciens)</small>
+                  <input name="dolibarrUserId" inputMode="numeric" pattern="\d*" placeholder="Ex. 12" />
+                  <small>
+                    « userownerid » du compte Dolibarr. Sans lui, un technicien ne voit aucune de
+                    ses interventions sur le mobile.
+                  </small>
+                </label>
                 <label>Mot de passe initial<input name="password" type="password" required minLength={12} placeholder="12 caractères minimum" /></label>
                 <button className="button button-primary">Créer le compte</button>
               </form>
@@ -448,6 +524,19 @@ export default async function SettingsPage({
                             ))}
                           </select>
                         </label>
+                        <label>Identifiant Dolibarr <small>(pour les techniciens)</small>
+                          <input
+                            name="dolibarrUserId"
+                            inputMode="numeric"
+                            pattern="\d*"
+                            defaultValue={entry.dolibarrUserId ?? ""}
+                            placeholder="Ex. 12"
+                          />
+                          <small>
+                            « userownerid » du compte Dolibarr. Sans lui, un technicien ne voit
+                            aucune de ses interventions sur le mobile.
+                          </small>
+                        </label>
                         <button className="button button-primary button-small">Enregistrer</button>
                       </form>
                     </GxonModal>
@@ -468,6 +557,72 @@ export default async function SettingsPage({
             </div>
           )}
         </section>
+      )}
+
+      {activeTab === "notifications" && (
+      <section className="card settings-section" id="notifications">
+        <div className="settings-heading">
+          <div className="settings-title">
+            <span className="settings-icon"><BellRing size={20} /></span>
+            <div>
+              <h2>Notifications</h2>
+              <p>Clés push, e-mails sortants et appareils abonnés.</p>
+            </div>
+          </div>
+        </div>
+        <NotificationSettingsForm
+          adminEmail={user?.email ?? ""}
+          settings={{
+            push: {
+              configured: Boolean(
+                notificationSettings?.vapidPublicKey && notificationSettings.vapidPrivateKeyEncrypted,
+              ),
+              publicKey: notificationSettings?.vapidPublicKey ?? "",
+              subject: notificationSettings?.vapidSubject ?? "",
+            },
+            email: {
+              configured: Boolean(
+                notificationSettings?.resendApiKeyEncrypted && notificationSettings.emailFrom,
+              ),
+              from: notificationSettings?.emailFrom ?? "",
+            },
+          }}
+          devices={pushDevices.map((device) => ({
+            id: device.id,
+            device: describeDevice(device.userAgent),
+            user: device.user.name,
+            email: device.user.email,
+            createdAt: device.createdAt.toISOString(),
+          }))}
+        />
+      </section>
+      )}
+
+      {activeTab === "backup" && (
+      <section className="card settings-section" id="backup">
+        <div className="settings-heading">
+          <div className="settings-title">
+            <span className="settings-icon"><DatabaseBackup size={20} /></span>
+            <div>
+              <h2>Sauvegarde de la base</h2>
+              <p>Sauvegardez, téléchargez et restaurez l’intégralité des données de l’application.</p>
+            </div>
+          </div>
+        </div>
+        <BackupSection
+          databaseName={databaseName()}
+          backups={backupFiles.map((backup) => ({
+            fileName: backup.fileName,
+            sizeBytes: backup.sizeBytes,
+            createdAt: backup.createdAt.toISOString(),
+          }))}
+          settings={{
+            intervalHours: backupSettings?.backupIntervalHours ?? null,
+            lastRunAt: backupSettings?.backupLastRunAt?.toISOString() ?? null,
+            lastError: backupSettings?.backupLastError ?? null,
+          }}
+        />
+      </section>
       )}
 
       {activeTab === "journal" && <AuditLogSection searchParams={resolvedSearchParams} />}

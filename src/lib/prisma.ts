@@ -1,7 +1,7 @@
 import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "@/generated/prisma/client";
 
-const PRISMA_CLIENT_SIGNATURE = "20260803220707_add_worksheet_photo";
+const PRISMA_CLIENT_SIGNATURE = "20260805112750_add_notification_settings";
 
 const globalForPrisma = globalThis as unknown as {
   prisma?: PrismaClient;

@@ -1,0 +1,107 @@
+.wrap {
+  display: grid;
+  gap: 10px;
+}
+
+.empty,
+.error {
+  margin: 0;
+  font-size: 13px;
+  color: var(--muted);
+}
+.error { color: var(--danger); }
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(78px, 1fr));
+  gap: 8px;
+}
+
+.thumb {
+  position: relative;
+  display: block;
+  overflow: hidden;
+  aspect-ratio: 1;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--control-bg);
+}
+.thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.thumbDelete {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border: 0;
+  border-radius: 6px;
+  /* Fond sombre fixe, indépendant du thème : la vignette derrière est une photo quelconque. */
+  background: rgb(20 24 34 / 62%);
+  color: #fff;
+  cursor: pointer;
+}
+.thumbDelete:hover { background: rgb(20 24 34 / 82%); }
+
+.fileRow {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 9px 11px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--muted);
+}
+
+.fileMeta {
+  display: grid;
+  min-width: 0;
+  gap: 1px;
+}
+.fileName {
+  overflow: hidden;
+  color: var(--heading);
+  font-size: 13px;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.fileSize { font-size: 11.5px; }
+
+.fileAction {
+  display: grid;
+  flex: 0 0 auto;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  margin-left: auto;
+  border: 0;
+  border-radius: 7px;
+  background: none;
+  color: var(--muted);
+  cursor: pointer;
+}
+.fileAction + .fileAction { margin-left: 0; }
+.fileAction:hover { background: var(--control-bg); color: var(--heading); }
+
+.uploadButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  padding: 9px 13px;
+  border: 1px dashed var(--border);
+  border-radius: 8px;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.uploadButton:hover { border-color: var(--primary); color: var(--primary); }
+.uploadButton input { display: none; }

@@ -15,6 +15,7 @@ import {
   Wrench,
 } from "lucide-react";
 import { useMobilePreferences } from "./MobilePreferences";
+import { MobileSheet } from "./MobileSheet";
 import { NoteRichText, type NoteToken } from "@/components/ui/NoteRichText";
 import type { PlanningItem } from "@/components/planification-sav/mock-data";
 import styles from "./mobile.module.css";
@@ -32,6 +33,7 @@ export function DetailScreen({ item }: { item: PlanningItem }) {
   const [noteLoading, setNoteLoading] = useState(Boolean(eventId));
   const [refreshToken, setRefreshToken] = useState(0);
   const [refreshing, setRefreshing] = useState(false);
+  const [routeOpen, setRouteOpen] = useState(false);
 
   // La note/le téléphone Dolibarr sont mis en cache côté serveur (5 min, voir
   // /api/dolibarr/events/[id]/route.ts) — on ne les redemande donc plus à chaque ouverture. Le
@@ -67,19 +69,47 @@ export function DetailScreen({ item }: { item: PlanningItem }) {
   };
 
   const phone = item.phone || notePhone;
+  const dateFormatter = new Intl.DateTimeFormat(LOCALE_TAGS[locale], {
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+  });
+  // Intervention sur plusieurs jours (`date` → `endDate`) — affiche l'intervalle complet, pas
+  // seulement le premier jour, sinon on perd l'info que le chantier continue le(s) jour(s) suivant(s).
   const dateLabel = item.date
-    ? new Intl.DateTimeFormat(LOCALE_TAGS[locale], { weekday: "long", day: "numeric", month: "long" }).format(
-        new Date(`${item.date}T12:00:00`),
-      )
+    ? item.endDate && item.endDate !== item.date
+      ? `${dateFormatter.format(new Date(`${item.date}T12:00:00`))} – ${dateFormatter.format(
+          new Date(`${item.endDate}T12:00:00`),
+        )}`
+      : dateFormatter.format(new Date(`${item.date}T12:00:00`))
     : "";
+
+  const routeApps = item.address
+    ? [
+        { label: t("detail.route.appleMaps"), url: `https://maps.apple.com/?daddr=${encodeURIComponent(item.address)}` },
+        {
+          label: t("detail.route.googleMaps"),
+          url: `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(item.address)}`,
+        },
+        { label: t("detail.route.waze"), url: `https://waze.com/ul?q=${encodeURIComponent(item.address)}&navigate=yes` },
+      ]
+    : [];
 
   return (
     <>
       <div className={styles.detailNav}>
-        <Link href="/mobile" className={styles.navButton}>
+        {/* `router.back()` — un lien fixe vers `/mobile` ramenait toujours à "Aujourd'hui" même en
+           venant du calendrier ou de SAV, perdant l'écran d'origine. `history.length` évite un
+           `back()` qui sortirait carrément de l'app si la fiche a été ouverte en accès direct
+           (aucun historique de navigation dans l'app avant elle). */}
+        <button
+          type="button"
+          className={styles.navButton}
+          onClick={() => (window.history.length > 1 ? router.back() : router.push("/mobile"))}
+        >
           <ChevronLeft aria-hidden size={19} />
           {t("detail.back")}
-        </Link>
+        </button>
         <button
           type="button"
           className={styles.navButton}
@@ -111,33 +141,27 @@ export function DetailScreen({ item }: { item: PlanningItem }) {
               </a>
             )}
             {item.address && (
-              <a
-                href={`https://maps.apple.com/?daddr=${encodeURIComponent(item.address)}`}
-                target="_blank"
-                rel="noreferrer"
+              <button
+                type="button"
+                onClick={() => setRouteOpen(true)}
                 className={`${styles.quickAction} ${styles.quickRoute}`}
               >
                 <Navigation aria-hidden size={19} />
                 {t("detail.route")}
-              </a>
+              </button>
             )}
           </div>
         )}
 
         <div className={styles.card}>
           {item.address && (
-            <a
-              href={`https://maps.apple.com/?daddr=${encodeURIComponent(item.address)}`}
-              target="_blank"
-              rel="noreferrer"
-              className={styles.field}
-            >
+            <button type="button" onClick={() => setRouteOpen(true)} className={styles.field}>
               <span className={styles.fieldIcon}><MapPin aria-hidden size={15} /></span>
               <span className={styles.fieldBody}>
                 <small>{t("detail.address")}</small>
-                <strong>{item.address}</strong>
+                <strong className={styles.fieldValueWrap}>{item.address}</strong>
               </span>
-            </a>
+            </button>
           )}
           {phone && (
             <a href={`tel:${phone.replace(/\s/g, "")}`} className={styles.field}>
@@ -199,6 +223,23 @@ export function DetailScreen({ item }: { item: PlanningItem }) {
           {t("detail.finish")}
         </Link>
       </div>
+
+      <MobileSheet open={routeOpen} onClose={() => setRouteOpen(false)} title={t("detail.route.chooseApp")}>
+        <div className={styles.sheetList}>
+          {routeApps.map((app) => (
+            <a
+              key={app.label}
+              href={app.url}
+              target="_blank"
+              rel="noreferrer"
+              className={styles.sheetOption}
+              onClick={() => setRouteOpen(false)}
+            >
+              {app.label}
+            </a>
+          ))}
+        </div>
+      </MobileSheet>
     </>
   );
 }

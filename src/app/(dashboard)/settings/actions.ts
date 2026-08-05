@@ -17,6 +17,9 @@ const userSchema = z.object({
   name: z.string().trim().min(1, "Le nom est requis.").max(120),
   role: userRoleEnum,
   teamId: z.string().trim(),
+  // Identifiant `userownerid` du compte Dolibarr correspondant : sans lui, un technicien ne peut
+  // être rattaché à aucune intervention (voir lib/mobile/scope.ts). Vide = pas de rattachement.
+  dolibarrUserId: z.string().trim().max(40).regex(/^\d*$/, "L’identifiant Dolibarr est numérique.").default(""),
   password: z.string().min(12, "12 caractères minimum."),
 });
 
@@ -24,6 +27,15 @@ const userUpdateSchema = userSchema.omit({ password: true });
 
 function isUniqueConflict(error: unknown) {
   return typeof error === "object" && error !== null && "code" in error && error.code === "P2002";
+}
+
+/** `email` et `dolibarrUserId` sont tous deux uniques : le message doit dire lequel a buté. */
+function uniqueConflictMessage(error: unknown) {
+  const target = (error as { meta?: { target?: unknown } })?.meta?.target;
+  const fields = Array.isArray(target) ? target.map(String) : [String(target ?? "")];
+  return fields.some((field) => field.includes("dolibarrUserId"))
+    ? new Error("Cet identifiant Dolibarr est déjà rattaché à un autre compte.")
+    : new Error("Un compte existe déjà avec cet email.");
 }
 
 const tagSchema = z.object({
@@ -313,11 +325,12 @@ export async function createUser(formData: FormData) {
         name: data.name,
         role: data.role,
         teamId: data.teamId || null,
+        dolibarrUserId: data.dolibarrUserId || null,
         passwordHash,
       },
     });
   } catch (error) {
-    if (isUniqueConflict(error)) throw new Error("Un compte existe déjà avec cet email.");
+    if (isUniqueConflict(error)) throw uniqueConflictMessage(error);
     throw error;
   }
   await prisma.auditLog.create({
@@ -339,10 +352,16 @@ export async function updateUser(id: string, formData: FormData) {
   try {
     await prisma.user.update({
       where: { id },
-      data: { email: data.email, name: data.name, role: data.role, teamId: data.teamId || null },
+      data: {
+        email: data.email,
+        name: data.name,
+        role: data.role,
+        teamId: data.teamId || null,
+        dolibarrUserId: data.dolibarrUserId || null,
+      },
     });
   } catch (error) {
-    if (isUniqueConflict(error)) throw new Error("Un compte existe déjà avec cet email.");
+    if (isUniqueConflict(error)) throw uniqueConflictMessage(error);
     throw error;
   }
   await prisma.auditLog.create({
@@ -390,6 +409,40 @@ export async function adminResetPassword(id: string, formData: FormData) {
       action: "USER_PASSWORD_RESET_BY_ADMIN",
       entityType: "User",
       entityId: id,
+    },
+  });
+  revalidatePath("/settings");
+}
+
+const backupScheduleSchema = z.object({
+  // "" = sauvegarde automatique désactivée. Plafond à 720 h (30 jours) : au-delà, l'intervalle
+  // n'a plus de sens face à la rétention (30 fichiers conservés par défaut).
+  intervalHours: z
+    .string()
+    .trim()
+    .regex(/^$|^\d{1,3}$/, "Indiquez un nombre d’heures.")
+    .refine((value) => value === "" || (Number(value) >= 1 && Number(value) <= 720), {
+      message: "L’intervalle doit être compris entre 1 et 720 heures.",
+    }),
+});
+
+export async function updateBackupSchedule(formData: FormData) {
+  const admin = await requireAdmin();
+  const { intervalHours } = backupScheduleSchema.parse(Object.fromEntries(formData));
+  const value = intervalHours === "" ? null : Number(intervalHours);
+
+  await prisma.appSettings.upsert({
+    where: { id: 1 },
+    update: { backupIntervalHours: value },
+    create: { id: 1, backupIntervalHours: value },
+  });
+  await prisma.auditLog.create({
+    data: {
+      userId: admin.id,
+      action: "DB_BACKUP_SCHEDULE_UPDATE",
+      entityType: "AppSettings",
+      entityId: "1",
+      metadata: { intervalHours: value },
     },
   });
   revalidatePath("/settings");

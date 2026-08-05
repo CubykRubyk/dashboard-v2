@@ -5,6 +5,7 @@ import { LogOut, Monitor, MoonStar, Sun, SunMoon } from "lucide-react";
 import { logout } from "@/app/(auth)/login/actions";
 import { useMobilePreferences } from "./MobilePreferences";
 import { MobileTabBar } from "./MobileTabBar";
+import { PushToggle } from "./PushToggle";
 import { LOCALE_LABELS, LOCALES } from "./i18n/dictionaries";
 import type { ThemePreference } from "./MobilePreferences";
 import styles from "./mobile.module.css";
@@ -68,6 +69,10 @@ export function ProfileScreen({ name, email, role }: { name: string; email: stri
               </button>
             ))}
           </div>
+        </div>
+
+        <div className={styles.card}>
+          <PushToggle />
         </div>
 
         <div className={styles.card}>

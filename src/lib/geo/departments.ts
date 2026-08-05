@@ -99,7 +99,10 @@ export function groupItemsByDepartment(items: PlanningItem[]): Map<string, Depar
   const groups = new Map<string, DepartmentGroup>();
   for (const item of items) {
     if (!item.coordinates) continue;
-    if (item.kind === "intervention" && item.date && item.date < today) continue;
+    // Une intervention multi-jours reste pertinente tant que son dernier jour n'est pas passé,
+    // pas seulement son premier (`date`) — sinon elle disparaît dès le lendemain de son début.
+    const effectiveEnd = item.endDate ?? item.date;
+    if (item.kind === "intervention" && effectiveEnd && effectiveEnd < today) continue;
     const [lat, lng] = item.coordinates;
     const department = findDepartmentForPoint(lat, lng);
     if (!department) continue;

@@ -4,6 +4,9 @@ import { getSession } from "@/lib/auth/session";
 import { canManageSav, canViewSav } from "@/lib/auth/permissions";
 import { prisma } from "@/lib/prisma";
 import { geocodeAddress } from "@/lib/geo/geocode";
+import { sendEmail } from "@/lib/email/send";
+import { savStatusEmail } from "@/lib/email/sav-templates";
+import { clientFacingState } from "@/lib/sav/client-state";
 import {
   HISTORY_TYPE_TO_DB,
   PRIORITY_TO_DB,
@@ -74,10 +77,14 @@ export async function PATCH(
   }
   const { id } = await params;
 
-  const existing = await prisma.savTicket.findUnique({ where: { id }, select: { id: true, address: true } });
+  const existing = await prisma.savTicket.findUnique({
+    where: { id },
+    select: { id: true, address: true, status: true, planningDate: true },
+  });
   if (!existing) {
     return NextResponse.json({ error: "Bilet introuvable." }, { status: 404 });
   }
+  const previousClientState = clientFacingState(existing);
 
   let payload: unknown;
   try {
@@ -151,6 +158,18 @@ export async function PATCH(
       metadata: { fields: fields ?? {}, historyType: history?.type ?? null },
     },
   });
+
+  // Suivi client : un e-mail par changement d'état visible (en cours → planifié → résolu), et
+  // seulement si le demandeur a laissé une adresse. Volontairement après la transaction et sans
+  // `await` bloquant sur l'échec : un problème d'e-mail ne doit pas faire échouer la mise à jour
+  // déjà enregistrée.
+  const nextClientState = clientFacingState(refreshed);
+  if (refreshed.contactEmail && nextClientState !== previousClientState) {
+    const planningDate = refreshed.planningDate
+      ? new Intl.DateTimeFormat("fr-FR", { dateStyle: "full" }).format(refreshed.planningDate)
+      : undefined;
+    await sendEmail(savStatusEmail(refreshed, nextClientState, planningDate)).catch(() => undefined);
+  }
 
   return NextResponse.json({ ticket: serializeSavTicket(refreshed) });
 }

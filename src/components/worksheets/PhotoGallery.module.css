@@ -1,0 +1,208 @@
+/* Visionneuse plein écran — fond sombre fixe (comme un lightbox classique), indépendant du thème
+   clair/sombre de l'appli : ce n'est pas une surface de contenu, juste un cadre neutre pour les
+   photos. */
+.overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: flex;
+  flex-direction: column;
+  background: rgb(10 12 20 / 94%);
+  backdrop-filter: blur(2px);
+  animation: overlayIn .16s ease both;
+}
+
+@keyframes overlayIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.top {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 12px 18px;
+  border-bottom: 1px solid rgb(255 255 255 / 10%);
+}
+
+.info {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+  color: #f2f4fa;
+}
+
+.counter {
+  flex: 0 0 auto;
+  font-size: 12px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  color: #c7cef0;
+  background: rgb(255 255 255 / 8%);
+  padding: 4px 9px;
+  border-radius: 999px;
+}
+
+.meta { min-width: 0; }
+.meta strong {
+  display: block;
+  font-size: 12.8px;
+  font-weight: 700;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.meta span {
+  display: block;
+  font-size: 11px;
+  color: #9aa3c4;
+  margin-top: 1px;
+}
+
+.actions { display: flex; align-items: center; gap: 8px; flex: 0 0 auto; }
+
+.iconBtn {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 8px;
+  border: 1px solid rgb(255 255 255 / 14%);
+  background: rgb(255 255 255 / 6%);
+  color: #f2f4fa;
+  cursor: pointer;
+  text-decoration: none;
+}
+.iconBtn:hover { background: rgb(255 255 255 / 12%); }
+.iconBtn:disabled { opacity: .5; cursor: not-allowed; }
+.iconBtnActive { background: color-mix(in srgb, var(--primary) 55%, transparent); border-color: transparent; }
+.danger:hover { background: color-mix(in srgb, var(--danger) 40%, transparent); border-color: transparent; }
+
+.stage {
+  flex: 1;
+  min-height: 0;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 10px 70px;
+}
+
+.imageWrap {
+  max-width: 100%;
+  max-height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.imageWrap img {
+  display: block;
+  max-width: 78vw;
+  max-height: 62vh;
+  border-radius: 10px;
+  box-shadow: 0 30px 70px rgb(0 0 0 / 45%);
+}
+
+.loading { color: #9aa3c4; font-size: 13px; font-weight: 600; }
+
+.fallback {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  color: #cfd4ec;
+  font-size: 13px;
+  text-align: center;
+}
+
+.nav {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  border: 1px solid rgb(255 255 255 / 14%);
+  background: rgb(255 255 255 / 8%);
+  color: #fff;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+}
+.nav:hover { background: rgb(255 255 255 / 16%); }
+.prev { left: 16px; }
+.next { right: 16px; }
+
+.bottom {
+  flex: 0 0 auto;
+  border-top: 1px solid rgb(255 255 255 / 10%);
+  padding: 12px 18px 14px;
+}
+
+.selectBar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  margin-bottom: 10px;
+  flex-wrap: wrap;
+  color: #cfd4ec;
+  font-size: 12px;
+  font-weight: 700;
+}
+.selectLeft { display: flex; align-items: center; gap: 12px; }
+.selectSize { color: #7d86a6; font-weight: 600; }
+.link {
+  background: none;
+  border: none;
+  color: #8fa2ff;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  padding: 0;
+}
+.link:hover { text-decoration: underline; }
+
+.strip {
+  display: flex;
+  gap: 6px;
+  overflow-x: auto;
+  padding-bottom: 4px;
+  scrollbar-width: thin;
+  scrollbar-color: rgb(255 255 255 / 25%) transparent;
+}
+.strip::-webkit-scrollbar { height: 6px; }
+.strip::-webkit-scrollbar-thumb { background: rgb(255 255 255 / 22%); border-radius: 4px; }
+
+.thumb {
+  position: relative;
+  flex: 0 0 auto;
+  width: 56px;
+  height: 56px;
+  border-radius: 7px;
+  overflow: hidden;
+  cursor: pointer;
+  border: 2px solid transparent;
+  opacity: .55;
+  padding: 0;
+  background: rgb(255 255 255 / 6%);
+  transition: opacity .12s ease, border-color .12s ease, transform .12s ease;
+}
+.thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.thumb:hover { opacity: .85; }
+.thumbActive { opacity: 1; border-color: var(--primary); transform: scale(1.04); }
+.thumbSelected { opacity: 1; border-color: var(--primary); }
+
+.checkDot {
+  position: absolute;
+  top: 3px;
+  right: 3px;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  border: 1.5px solid rgb(255 255 255 / 80%);
+  background: var(--primary);
+}
