@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { BarChart3, Download, FileCheck2, Send, Users } from "lucide-react";
+import { BarChart3, Download, FileCheck2, FileSpreadsheet, Send, Users } from "lucide-react";
 import { prisma } from "@/lib/prisma";
 
 export const dynamic = "force-dynamic";
@@ -86,9 +86,11 @@ export default async function ReportsPage({
         <section className="card report-ranking"><h2>Matériels utilisés</h2>{[...materials.values()].sort((a,b) => b.quantity-a.quantity).slice(0,15).map((item) => <div key={item.name}><span>{item.name}</span><strong>{item.quantity.toLocaleString("fr-FR")}</strong></div>)}</section>
       </div>
       <section className="card reports-export">
-        <div><h2>Exporter les résultats</h2><p>Fichiers CSV compatibles avec Excel.</p></div>
-        <Link className="button button-ghost" href={`/api/reports/export?type=worksheets&${query}`}><Download size={16} /> Liste des fiches</Link>
-        <Link className="button button-primary" href={`/api/reports/export?type=materials&${query}`}><Download size={16} /> Total matériels</Link>
+        <div><h2>Exporter les résultats</h2><p>Excel (.xlsx) avec filtres et colonnes ajustées, ou CSV pour réimporter ailleurs.</p></div>
+        <Link className="button button-primary" href={`/api/reports/export?type=worksheets&format=xlsx&${query}`}><FileSpreadsheet size={16} /> Fiches (Excel)</Link>
+        <Link className="button button-primary" href={`/api/reports/export?type=materials&format=xlsx&${query}`}><FileSpreadsheet size={16} /> Matériels (Excel)</Link>
+        <Link className="button button-ghost" href={`/api/reports/export?type=worksheets&${query}`}><Download size={16} /> Fiches (CSV)</Link>
+        <Link className="button button-ghost" href={`/api/reports/export?type=materials&${query}`}><Download size={16} /> Matériels (CSV)</Link>
       </section>
     </>
   );

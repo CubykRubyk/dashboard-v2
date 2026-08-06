@@ -1,3 +1,4 @@
+import ExcelJS from "exceljs";
 import { NextRequest, NextResponse } from "next/server";
 import { getSession } from "@/lib/auth/session";
 import { prisma } from "@/lib/prisma";
@@ -47,7 +48,7 @@ export async function GET(request: NextRequest) {
         value.unit,
       ]),
     ];
-    name = `materiels-${from}-${to}.csv`;
+    name = `materiels-${from}-${to}`;
   } else {
     rows = [["Date", "Client", "Société", "Technicien", "Tags", "État", "ID Dolibarr"], ...fiches.map((fiche) => [
       fiche.workDate?.toISOString().slice(0, 10) || "",
@@ -58,13 +59,56 @@ export async function GET(request: NextRequest) {
       fiche.status,
       fiche.eventId || "",
     ])];
-    name = `fiches-${from}-${to}.csv`;
+    name = `fiches-${from}-${to}`;
   }
-  const content = `\uFEFF${rows.map((row) => row.map(csv).join(";")).join("\r\n")}`;
+
+  // Classeur Excel : le CSV force Excel à deviner les types (un « ID Dolibarr » perd son zéro
+  // initial, une date devient du texte). Le .xlsx porte les types et la mise en forme.
+  if (params.get("format") === "xlsx") {
+    const workbook = new ExcelJS.Workbook();
+    workbook.creator = "Damaschin CRM";
+    workbook.created = new Date();
+    const sheet = workbook.addWorksheet(
+      params.get("type") === "materials" ? "Matériels" : "Fiches",
+      { views: [{ state: "frozen", ySplit: 1 }] },
+    );
+
+    const [header, ...body] = rows;
+    sheet.addRow(header);
+    for (const row of body) sheet.addRow(row);
+
+    const headerRow = sheet.getRow(1);
+    headerRow.font = { bold: true };
+    headerRow.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFF2F4F8" } };
+
+    // Largeurs calculées sur le contenu réel : sans ça, tout arrive tronqué et il faut
+    // élargir chaque colonne à la main.
+    header.forEach((label, index) => {
+      const longest = Math.max(
+        label.length,
+        ...body.map((row) => String(row[index] ?? "").length),
+      );
+      sheet.getColumn(index + 1).width = Math.min(Math.max(longest + 2, 10), 50);
+    });
+
+    // Filtres sur l'en-tête : c'est la première chose qu'on ajoute à la main sinon.
+    sheet.autoFilter = { from: { row: 1, column: 1 }, to: { row: 1, column: header.length } };
+
+    const buffer = await workbook.xlsx.writeBuffer();
+    return new NextResponse(new Uint8Array(buffer), {
+      headers: {
+        "Content-Type":
+          "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        "Content-Disposition": `attachment; filename="${name}.xlsx"`,
+      },
+    });
+  }
+
+  const content = `﻿${rows.map((row) => row.map(csv).join(";")).join("\r\n")}`;
   return new NextResponse(content, {
     headers: {
       "Content-Type": "text/csv; charset=utf-8",
-      "Content-Disposition": `attachment; filename="${name}"`,
+      "Content-Disposition": `attachment; filename="${name}.csv"`,
     },
   });
 }
